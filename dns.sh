@@ -2,7 +2,7 @@
 #confiure unauthenticated DNS updates
 # cd /home/jenkins3/workspace/OSE_V3_Ansible_Installer/ ====> vim hosts ===> ansible-playbook -i hosts openshift-ansible/playbooks/byo/config.yml
 # Write SkyDNS to etcd
-# curl  --cacert /etc/origin/master/ca.crt --cert /etc/origin/master/master.etcd-client.crt --key /etc/origin/master/master.etcd-client.key -XPUT https://master.cluster.local:4001/v2/keys/skydns/local/cluster/master -d value='{Host: 10.66.79.97}'
+# curl  --cacert /etc/origin/master/ca.crt --cert /etc/origin/master/master.etcd-client.crt --key /etc/origin/master/master.etcd-client.key -XPUT https://master.cluster.local:4001/v2/keys/skydns/local/cluster/master -d value='{Host: 10.66.79.97}' 
 ########################################
 
 #/bin/bash
