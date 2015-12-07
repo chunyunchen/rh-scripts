@@ -1,0 +1,97 @@
+#!/bin/bash
+
+passwd='redhat_123'
+base_dir=~/.openshift
+dir_name=`date +%m%d`
+app_base_dir=$base_dir/$dir_name
+
+echo "Do you .."
+echo "Create a domain with \"rhc setup | rhc domain create\"?"
+echo "Set max gears with \"oo-admin-ctl-user -l chunchen@redhat.com --setmaxgears 100\"?"
+echo -n "[y/n] "
+read y_n
+if [ "${y_n}" == "n" ]
+then
+  exit 0
+fi
+
+if [ ! -d $base_dir/$dir_name ]
+then
+  mkdir -p $base_dir/$dir_name
+fi
+
+# Get user's name,password and app's name from parameters
+tmp_u=`grep -v ^# ~/.openshift/express.conf |grep  default_rhlogin | awk -F'=' '{print $2}'`
+user_name=`echo ${tmp_u} | sed  "s/'//g"`
+
+while [ $# -ne 0 ]
+do
+  if [ "$1" == "-l" ]
+  then
+    user_name=$2
+    shift
+    shift
+  elif [ "$1" == "-p" ]
+  then
+    passwd=$2
+    shift
+    shift
+  elif [ "$1" == "-s" ]
+  then
+    scalable=$1
+    shift
+  else
+    all_app_cartridges+=" $1"
+    shift
+  fi
+done
+
+num=`echo $user_name | sed "s/[^0-9]//g"`
+user_num=0
+if [ "$num" != "" ]
+then
+  user_num=$num
+fi
+#all_app_names=`rhc cartridge list | grep -w Y | awk '{print $1}' | sed "s/[-\.0-9]//g"`
+if [ "$all_app_cartridges" == "" ]
+then
+all_app_cartridges=`rhc cartridge list | grep -w Y | awk '{print $1}'`
+fi
+
+echo ">>>>>>>>>>>"
+echo "user name: $user_name"
+echo "password: $passwd"
+echo "<<<<<<<<<<<"
+
+for cart_type in $all_app_cartridges
+do
+  app_name=`echo $cart_type | sed "s/[-\.0-9]//g"`  
+  name_scale=`echo $scalable | sed "s/-//g"`
+  rhc app create ${app_name}${user_num}${name_scale} $cart_type  ${scalable} -l $user_name -p $passwd -r $app_base_dir
+done
+
+# If giving the app, ssh into the app's instance
+#if [ ! "$app_name" == "" ]
+#then
+#  echo ">>>>>>>>>>>"
+#  echo "app name: $app_name"
+#  echo "user name: $user_name"
+#  echo "password: $passwd"
+#  echo "<<<<<<<<<<<"
+#  echo "APP Name: $app_name"
+#  rhc app show $app_name --state -l$user_name -p$passwd
+## Not giving the app, show the domain
+#else
+#  app_names=`rhc domain show -l$user_name -p$passwd | grep @ | grep -w http | awk '{print $1}'`
+#  echo ">>>>>>>>>>>"
+#  echo "Show ${user_name}'s app(s)'s status...."
+#  echo -e "password: $passwd"
+#  echo "<<<<<<<<<<<"
+#  for p_name in $app_names
+#  do
+#    echo "APP Name: $p_name"
+#    rhc app show $p_name --state -l$user_name -p$passwd
+#    echo -e "\n"
+#  done
+#
+#fi
