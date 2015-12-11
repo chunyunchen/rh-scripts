@@ -9,15 +9,15 @@
 # the format for *time* command: %E=real time, %U=user time, %S=system time
 export TIMEFORMAT="%E %U %S"
 
-OS_MASTER=""
+OS_MASTER="openshift-124.lab.sjc.redhat.com"
 MASTER_CONFIG="/etc/origin/master/master-config.yaml"
 SUBDOMAIN=""
 OS_USER="chunchen"
 OS_PASSWD="redhat"
 CURRENT_USER_TOKEN=""
 MASTER_USER="root"
-PROJECT="${OS_USER}pj"
-#PROJECT="openshift-infra"
+#PROJECT="${OS_USER}pj"
+PROJECT="openshift-infra"
 RESULT_DIR=~/test/data
 METRICS_PERFORMANCE_FILE="metrics_performance.txt"
 LOGGING_PERFORMANCE_FILE="logging_performance.txt"
@@ -212,8 +212,8 @@ function set_annotation {
 
 SA_metrics_deployer="https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics-deployer-setup.yaml"
 HCH_stack="https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics.yaml"
-#Image_prefix="virt-openshift-05.lab.eng.nay.redhat.com:5000/openshift3/"
-Image_prefix="rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/"
+Image_prefix="registry.access.redhat.com/openshift3/"
+#Image_prefix="rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/"
 Image_version="latest"
 Use_pv=false
 
