@@ -9,15 +9,14 @@
 # the format for *time* command: %E=real time, %U=user time, %S=system time
 export TIMEFORMAT="%E %U %S"
 
-OS_MASTER="openshift-124.lab.sjc.redhat.com"
+OS_MASTER="ec2-52-90-106-198.compute-1.amazonaws.com"
 MASTER_CONFIG="/etc/origin/master/master-config.yaml"
 SUBDOMAIN=""
 OS_USER="chunchen"
 OS_PASSWD="redhat"
 CURRENT_USER_TOKEN=""
 MASTER_USER="root"
-#PROJECT="${OS_USER}pj"
-PROJECT="openshift-infra"
+PROJECT="${OS_USER}pj"
 RESULT_DIR=~/test/data
 METRICS_PERFORMANCE_FILE="metrics_performance.txt"
 LOGGING_PERFORMANCE_FILE="logging_performance.txt"
@@ -68,12 +67,47 @@ function add_permission {
     fi
 }
 
+function start_origin_openshift {
+    $SSH "ps aux |grep \"openshift start\" |grep -v grep" > .openshift_process
+    for pid in $(awk '{print $2}' .openshift_process)
+    do
+        $SSH "kill $pid"
+    done
+    rm -f .openshift_process
+    sleep 2
+    echo "Starting Openshift Server"
+    $SSH "cd ~; nohup openshift start --node-config=$node_config/node-config.yaml --master-config=$MASTER_CONFIG &> openshift.log &"
+    sleep 30
+    # --images='openshift/origin-${component}:latest
+    $SSH "oc delete dc --all -n default; oc delete rc --all -n default; oc delete pods --all -n default; oc delete svc --all -n default"
+    $SSH "oadm policy add-scc-to-user privileged system:serviceaccount:default:default"
+    #$SSH "oc delete rc --all -n default"
+    #$SSH "oc delete pods --all -n default"
+    echo "Starting to create registry and router"
+    $SSH "export CURL_CA_BUNDLE=/etc/origin/master/ca.crt; \
+          chmod a+rwX /etc/origin/master/admin.kubeconfig; \
+          chmod +r /etc/origin/master/openshift-registry.kubeconfig; \
+          oadm registry --create --credentials=/etc/origin/master/openshift-registry.kubeconfig --config=/etc/origin/master/admin.kubeconfig; \
+          oadm  router --credentials=/etc/origin/master/openshift-router.kubeconfig --config=/etc/origin/master/admin.kubeconfig --service-account=default"
+}
+
 Hawkular_metrics_appname="hawkular-metrics"
 Kibana_ops_appname="kibana-ops"
 Kibana_appname="kibana"
 # Add public URL in /etc/origin/master/master-config.yaml for logging and metrics on master machine
 function add_public_url {
     local restart_master="no"
+    local node_config=""
+
+    if [ -n "$(echo $OS_MASTER |grep ec2)" ];
+    then
+        rs=`$SSH "openshift start --public-master=$OS_MASTER:8443 --write-config=/etc/origin"`
+        $SSH "sed -i -e '/loggingPublicURL:/d' -e '/metricsPublicURL:/d' $MASTER_CONFIG"
+        node_config=$(echo "$rs" |grep -i "Created node config" |awk '{print $NF}')
+    fi
+
+    get_subdomain
+
     if [ "$CURLORSSH" == "ssh" ];
     then
         if [ -z "$($SSH "grep loggingPublicURL $MASTER_CONFIG")" ];
@@ -81,14 +115,23 @@ function add_public_url {
             $SSH "sed -i -e '/publicURL:/a\  loggingPublicURL: https://$Kibana_ops_appname.$SUBDOMAIN' -e '/publicURL:/a\  loggingPublicURL: https://$Kibana_appname.$SUBDOMAIN' $MASTER_CONFIG"
             restart_master="yes"
         fi
+
         if [ -z "$($SSH "grep metricsPublicURL $MASTER_CONFIG")" ];
         then
             $SSH "sed -i '/publicURL:/a\  metricsPublicURL: https://$Hawkular_metrics_appname.$SUBDOMAIN/hawkular/metrics' $MASTER_CONFIG"
             restart_master="yes"
         fi
+
         if [ "$restart_master" == "yes" ];
         then
-            $SSH "systemctl restart  atomic-openshift-master.service"
+            if [ -z "$(echo $OS_MASTER |grep ec2)" ];
+            then
+                $SSH "systemctl restart  atomic-openshift-master.service"
+                sleep 6
+            else
+                start_origin_openshift
+                echo "OpenShift server is up!"
+            fi
         fi
     fi
 }
@@ -135,12 +178,20 @@ function delete_oauthclient {
 }
 
 function delete_project {
-    local project_name="${1:-$PROJECT}"
-    if [ "1" == "$(get_resource_num "$project_name" "projects")" ];
-    then
-      oc delete project $project_name
-      check_resource_validation "deleting project *$project_name*" "$project_name" "0" "projects"
-    fi
+    local projects="$@"
+    for project_name in $projects
+    do
+        if [ "openshift-infra" == "$project_name" ];
+        then
+            echo -e "\033[31;49;1mOops!!! The *openshift-infra* is a default project, it's very import for OpenShift service! we can NOT delete it!\033[39;49;0m\n"
+            exit 1
+        fi
+        if [ "1" == "$(get_resource_num "$project_name" "projects")" ];
+        then
+          oc delete project $project_name
+          check_resource_validation "deleting project *$project_name*" "$project_name" "0" "projects"
+        fi
+    done
 }
 
 function create_project {
@@ -156,21 +207,20 @@ function create_project {
 # Log into OpenShift server and create PROJECT/namespace for user
 function login_openshift {
     local del_proj="$1"
+    add_public_url
     oc login $OS_MASTER -u $OS_USER -p $OS_PASSWD
     if [ "$CURLORSSH" != "ssh" ];
     then
         curl $ADMIN_CONFIG_URL -o $RESULT_DIR/$ADMIN_CONFIG 2>&-
         curl $MASTER_CONFIG_URL -o $RESULT_DIR/$MASTER_CONFIG_FILE 2>&-
     fi
-    get_subdomain
     add_permission
-    add_public_url
-    sleep 6  # wait master service started up
+
     CURRENT_USER_TOKEN=$(get_token_for_current_user)
 
     if [ "--del-proj" == "$del_proj" ];
     then
-        delete_project
+        delete_project $podproject $PROJECT
     fi
     create_project
 }
@@ -212,7 +262,7 @@ function set_annotation {
 
 SA_metrics_deployer="https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics-deployer-setup.yaml"
 HCH_stack="https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics.yaml"
-Image_prefix="registry.access.redhat.com/openshift3/"
+Image_prefix="openshift/origin-"
 #Image_prefix="rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/"
 Image_version="latest"
 Use_pv=false
@@ -269,7 +319,6 @@ API
     # Enable fluentd service account
     fix_scc_permission "privileged" "system:serviceaccount:$PROJECT:aggregated-logging-fluentd"
     # Scale Fluentd Pod
-set -x
     local fluentd_pod_num=$(get_node_num)
     oc scale dc/logging-fluentd --replicas=$fluentd_pod_num
     oc scale rc/logging-fluentd-1 --replicas=$fluentd_pod_num
@@ -400,7 +449,7 @@ function scale {
     local incremental_num=1
     local project_name="$PROJECT"
     local pod_num=""
-    
+
     OPTIND=1
     while getopts ":r:i:n:p:o:" opt
     do
@@ -447,6 +496,7 @@ function main {
 	while getopts ":d:r:i:n:p:o:" opt; do
         case $opt in
             d) del_project='--del-proj' ;;
+            p) PROJECT="$OPTARG"
         esac
     done
 
