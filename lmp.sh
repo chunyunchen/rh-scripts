@@ -80,6 +80,7 @@ function start_origin_openshift {
     sleep 30
     # --images='openshift/origin-${component}:latest
     $SSH "oc delete dc --all -n default; oc delete rc --all -n default; oc delete pods --all -n default; oc delete svc --all -n default"
+    # Add permission for creating router
     $SSH "oadm policy add-scc-to-user privileged system:serviceaccount:default:default"
     #$SSH "oc delete rc --all -n default"
     #$SSH "oc delete pods --all -n default"
