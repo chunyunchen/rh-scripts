@@ -9,14 +9,14 @@
 # the format for *time* command: %E=real time, %U=user time, %S=system time
 export TIMEFORMAT="%E %U %S"
 
-OS_MASTER="ec2-52-90-106-198.compute-1.amazonaws.com"
+OS_MASTER="ec2-52-90-47-142.compute-1.amazonaws.com"
 MASTER_CONFIG="/etc/origin/master/master-config.yaml"
 SUBDOMAIN=""
 OS_USER="chunchen"
 OS_PASSWD="redhat"
 CURRENT_USER_TOKEN=""
 MASTER_USER="root"
-PROJECT="${OS_USER}pj"
+PROJECT="$(echo $OS_USER | grep -o -E '^[-a-z0-9]([-a-z0-9]*[a-z0-9])?')"
 RESULT_DIR=~/test/data
 METRICS_PERFORMANCE_FILE="metrics_performance.txt"
 LOGGING_PERFORMANCE_FILE="logging_performance.txt"
@@ -29,6 +29,7 @@ CONFIG_HOST="http://$OS_MASTER:8080/master"
 ADMIN_CONFIG_URL="$CONFIG_HOST/$ADMIN_CONFIG"
 MASTER_CONFIG_URL="$CONFIG_HOST/$MASTER_CONFIG_FILE"
 CURLORSSH="ssh"
+START_OPENSHIFT="false"
 ########
 podproject=${OS_USER}pj2
 podimage="bmeng/hello-openshift"
@@ -37,6 +38,7 @@ scaleNum=10
 loopScaleNum=60
 
 set -e
+source ~/scripts/common.sh
 
 function get_nodes {
     oc get node |grep -v -e "SchedulingDisabled" -e "STATUS" |awk ' {print $1}'
@@ -68,22 +70,27 @@ function add_permission {
 }
 
 function start_origin_openshift {
-    $SSH "ps aux |grep \"openshift start\" |grep -v grep" > .openshift_process
+    set_bash "sshos" "$SSH"
+
+    local rs=`$SSH "openshift start --public-master=$OS_MASTER:8443 --write-config=/etc/origin"`
+    local node_config=$(echo "$rs" |grep -i "Created node config" |awk '{print $NF}')
+    $SSH "sed -i -e '/loggingPublicURL:/d' -e '/metricsPublicURL:/d' $MASTER_CONFIG"
+    # Delete existing OpenShift instance
+    $SSH "ps aux |grep \"openshift start\" |grep -v grep; echo -n" > .openshift_process
     for pid in $(awk '{print $2}' .openshift_process)
     do
         $SSH "kill $pid"
     done
     rm -f .openshift_process
-    sleep 2
+    sleep 1
+
     echo "Starting Openshift Server"
-    $SSH "cd ~; nohup openshift start --node-config=$node_config/node-config.yaml --master-config=$MASTER_CONFIG &> openshift.log &"
-    sleep 30
+    $SSH "echo export KUBECONFIG=/etc/origin/master/$ADMIN_CONFIG >> ~/.bashrc; nohup openshift start --node-config=$node_config/node-config.yaml --master-config=$MASTER_CONFIG &> openshift.log &"
+    sleep 23
     # --images='openshift/origin-${component}:latest
     $SSH "oc delete dc --all -n default; oc delete rc --all -n default; oc delete pods --all -n default; oc delete svc --all -n default"
     # Add permission for creating router
     $SSH "oadm policy add-scc-to-user privileged system:serviceaccount:default:default"
-    #$SSH "oc delete rc --all -n default"
-    #$SSH "oc delete pods --all -n default"
     echo "Starting to create registry and router"
     $SSH "export CURL_CA_BUNDLE=/etc/origin/master/ca.crt; \
           chmod a+rwX /etc/origin/master/admin.kubeconfig; \
@@ -92,20 +99,17 @@ function start_origin_openshift {
           oadm  router --credentials=/etc/origin/master/openshift-router.kubeconfig --config=/etc/origin/master/admin.kubeconfig --service-account=default"
 }
 
+function clone_gitrepo {
+    echo "Cloning logging/metrics repos to $OS_MASTER under \$HOME dir for building related images..."
+    $SSH "git clone https://github.com/openshift/origin-metrics.git; git clone https://github.com/openshift/origin-aggregated-logging.git"
+}
+
 Hawkular_metrics_appname="hawkular-metrics"
 Kibana_ops_appname="kibana-ops"
 Kibana_appname="kibana"
 # Add public URL in /etc/origin/master/master-config.yaml for logging and metrics on master machine
 function add_public_url {
     local restart_master="no"
-    local node_config=""
-
-    if [ -n "$(echo $OS_MASTER |grep ec2)" ];
-    then
-        rs=`$SSH "openshift start --public-master=$OS_MASTER:8443 --write-config=/etc/origin"`
-        $SSH "sed -i -e '/loggingPublicURL:/d' -e '/metricsPublicURL:/d' $MASTER_CONFIG"
-        node_config=$(echo "$rs" |grep -i "Created node config" |awk '{print $NF}')
-    fi
 
     get_subdomain
 
@@ -130,8 +134,11 @@ function add_public_url {
                 $SSH "systemctl restart  atomic-openshift-master.service"
                 sleep 6
             else
-                start_origin_openshift
-                echo "OpenShift server is up!"
+                if [ "true" == "$START_OPENSHIFT" ];
+                then
+                    clone_gitrepo
+                    start_origin_openshift
+                fi
             fi
         fi
     fi
@@ -196,7 +203,7 @@ function delete_project {
 }
 
 function create_project {
-    local project_name="${1:-$PROJECT}"
+    local project_name="$PROJECT"
     if [ "0" == "$(get_resource_num "$project_name" "projects")" ];
     then
       oc new-project $project_name
@@ -452,7 +459,7 @@ function scale {
     local pod_num=""
 
     OPTIND=1
-    while getopts ":r:i:n:p:o:" opt
+    while getopts ":dsr:i:n:p:o:m:" opt
     do
         case $opt in
             r) resource_name="$OPTARG" ;;
@@ -494,14 +501,19 @@ function main {
     # If '-d' is specified, then will delete the PROJECT named "$PROJECT" and re-create
     local fun_obj="${!#}"
     local del_project=''
-	while getopts ":d:r:i:n:p:o:" opt; do
+	while getopts ":dsr:i:n:p:o:m:" opt; do
         case $opt in
             d) del_project='--del-proj' ;;
-            p) PROJECT="$OPTARG"
+            p) PROJECT="$OPTARG" ;;
+            s) START_OPENSHIFT="true" ;;
+            m) OS_MASTER="$OPTARG"
         esac
     done
 
     case $fun_obj in
+        "os")
+            start_origin_openshift
+            ;;
         "hch")
             login_openshift "$del_project"
             up_hch_stack
@@ -528,7 +540,8 @@ function main {
         "startall")
             start_hch_and_efk "$del_project"
             ;;
-        *) usage;;
+        *) usage
+            ;;
     esac
 }
 
