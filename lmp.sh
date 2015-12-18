@@ -506,7 +506,7 @@ function main {
             d) del_project='--del-proj' ;;
             p) PROJECT="$OPTARG" ;;
             s) START_OPENSHIFT="true" ;;
-            m) OS_MASTER="$OPTARG"
+            m) OS_MASTER="$OPTARG" ;;
         esac
     done
 
