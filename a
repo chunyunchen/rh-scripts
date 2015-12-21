@@ -1,0 +1,207 @@
+{
+    "kind": "List",
+    "apiVersion": "v1",
+    "metadata": {},
+    "items": [
+        {
+            "kind": "Pod",
+            "apiVersion": "v1",
+            "metadata": {
+                "name": "ruby-hello-world-1-3b1cr",
+                "generateName": "ruby-hello-world-1-",
+                "namespace": "chunchen",
+                "selfLink": "/api/v1/namespaces/chunchen/pods/ruby-hello-world-1-3b1cr",
+                "uid": "0fab86f8-a535-11e5-9de6-0e2773f4b26f",
+                "resourceVersion": "6371",
+                "creationTimestamp": "2015-12-18T03:11:41Z",
+                "labels": {
+                    "app": "ruby-hello-world",
+                    "deployment": "ruby-hello-world-1",
+                    "deploymentconfig": "ruby-hello-world"
+                },
+                "annotations": {
+                    "kubernetes.io/created-by": "{\"kind\":\"SerializedReference\",\"apiVersion\":\"v1\",\"reference\":{\"kind\":\"ReplicationController\",\"namespace\":\"chunchen\",\"name\":\"ruby-hello-world-1\",\"uid\":\"0e7476cc-a535-11e5-9de6-0e2773f4b26f\",\"apiVersion\":\"v1\",\"resourceVersion\":\"859\"}}\n",
+                    "openshift.io/deployment-config.latest-version": "1",
+                    "openshift.io/deployment-config.name": "ruby-hello-world",
+                    "openshift.io/deployment.name": "ruby-hello-world-1",
+                    "openshift.io/generated-by": "OpenShiftNewApp",
+                    "openshift.io/scc": "restricted"
+                }
+            },
+            "spec": {
+                "volumes": [
+                    {
+                        "name": "mysql-volume-1",
+                        "emptyDir": {}
+                    },
+                    {
+                        "name": "default-token-7uwl4",
+                        "secret": {
+                            "secretName": "default-token-7uwl4"
+                        }
+                    }
+                ],
+                "containers": [
+                    {
+                        "name": "ruby-hello-world",
+                        "image": "172.30.49.102:5000/chunchen/ruby-hello-world@sha256:ee8c97900b998e827df2280ccd04342c9590f648f39f7abbe5baece5e488ba14",
+                        "ports": [
+                            {
+                                "containerPort": 8080,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "env": [
+                            {
+                                "name": "MYSQL_DATABASE",
+                                "value": "test"
+                            },
+                            {
+                                "name": "MYSQL_PASSWORD",
+                                "value": "test"
+                            },
+                            {
+                                "name": "MYSQL_USER",
+                                "value": "root"
+                            }
+                        ],
+                        "resources": {},
+                        "volumeMounts": [
+                            {
+                                "name": "default-token-7uwl4",
+                                "readOnly": true,
+                                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+                            }
+                        ],
+                        "terminationMessagePath": "/dev/termination-log",
+                        "imagePullPolicy": "Always",
+                        "securityContext": {
+                            "privileged": false,
+                            "seLinuxOptions": {
+                                "level": "s0:c6,c5"
+                            },
+                            "runAsUser": 1000040000
+                        }
+                    },
+                    {
+                        "name": "mysql",
+                        "image": "docker.io/centos/mysql-56-centos7@sha256:8476447ff6caa8e26045979f323c955db54d59d9b3029f387a5988572c8cbb84",
+                        "ports": [
+                            {
+                                "containerPort": 3306,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "env": [
+                            {
+                                "name": "MYSQL_DATABASE",
+                                "value": "test"
+                            },
+                            {
+                                "name": "MYSQL_PASSWORD",
+                                "value": "test"
+                            },
+                            {
+                                "name": "MYSQL_USER",
+                                "value": "root"
+                            }
+                        ],
+                        "resources": {},
+                        "volumeMounts": [
+                            {
+                                "name": "mysql-volume-1",
+                                "mountPath": "/var/lib/mysql/data"
+                            },
+                            {
+                                "name": "default-token-7uwl4",
+                                "readOnly": true,
+                                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+                            }
+                        ],
+                        "terminationMessagePath": "/dev/termination-log",
+                        "imagePullPolicy": "Always",
+                        "securityContext": {
+                            "privileged": false,
+                            "seLinuxOptions": {
+                                "level": "s0:c6,c5"
+                            },
+                            "runAsUser": 1000040000
+                        }
+                    }
+                ],
+                "restartPolicy": "Always",
+                "terminationGracePeriodSeconds": 30,
+                "dnsPolicy": "ClusterFirst",
+                "host": "ip-172-18-0-68.ec2.internal",
+                "serviceAccountName": "default",
+                "serviceAccount": "default",
+                "nodeName": "ip-172-18-0-68.ec2.internal",
+                "securityContext": {
+                    "seLinuxOptions": {
+                        "level": "s0:c6,c5"
+                    }
+                },
+                "imagePullSecrets": [
+                    {
+                        "name": "default-dockercfg-2bcgz"
+                    }
+                ]
+            },
+            "status": {
+                "phase": "Running",
+                "conditions": [
+                    {
+                        "type": "Ready",
+                        "status": "False",
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2015-12-18T09:04:10Z",
+                        "reason": "ContainersNotReady",
+                        "message": "containers with unready status: [mysql]"
+                    }
+                ],
+                "hostIP": "172.18.0.68",
+                "podIP": "172.17.0.9",
+                "startTime": "2015-12-18T03:11:41Z",
+                "containerStatuses": [
+                    {
+                        "name": "mysql",
+                        "state": {
+                            "waiting": {
+                                "reason": "CrashLoopBackOff",
+                                "message": "Back-off 5m0s restarting failed container=mysql pod=ruby-hello-world-1-3b1cr_chunchen"
+                            }
+                        },
+                        "lastState": {
+                            "terminated": {
+                                "exitCode": 1,
+                                "reason": "Error",
+                                "startedAt": "2015-12-18T09:04:01Z",
+                                "finishedAt": "2015-12-18T09:04:01Z",
+                                "containerID": "docker://45e3a6b12ef342cba4a92d5bbb71e60b099190f87db50d765704bc245e74a1e7"
+                            }
+                        },
+                        "ready": false,
+                        "restartCount": 74,
+                        "image": "docker.io/centos/mysql-56-centos7@sha256:8476447ff6caa8e26045979f323c955db54d59d9b3029f387a5988572c8cbb84",
+                        "imageID": "docker://301f6587707d291f68373d89b053595a9ef79e58de48209ac9b5c58892d97ecd",
+                        "containerID": "docker://45e3a6b12ef342cba4a92d5bbb71e60b099190f87db50d765704bc245e74a1e7"
+                    },
+                    {
+                        "name": "ruby-hello-world",
+                        "state": {
+                            "running": {
+                                "startedAt": "2015-12-18T03:11:42Z"
+                            }
+                        },
+                        "lastState": {},
+                        "ready": true,
+                        "restartCount": 0,
+                        "image": "172.30.49.102:5000/chunchen/ruby-hello-world@sha256:ee8c97900b998e827df2280ccd04342c9590f648f39f7abbe5baece5e488ba14",
+                        "imageID": "docker://26f8155bf0243f1b1579747bef11b9f304b0885206d9850ad2ae003559fbb367",
+                        "containerID": "docker://63e3f9bc423d53a35ac83c22e283f955ed9f666c3fe4cc9dec6757bbb00be4ac"
+                    }
+                ]
+            }
+        }
+    ]
+}

@@ -9,7 +9,7 @@
 # the format for *time* command: %E=real time, %U=user time, %S=system time
 export TIMEFORMAT="%E %U %S"
 
-OS_MASTER="ec2-52-90-47-142.compute-1.amazonaws.com"
+OS_MASTER=""
 MASTER_CONFIG="/etc/origin/master/master-config.yaml"
 SUBDOMAIN=""
 OS_USER="chunchen"
@@ -69,6 +69,25 @@ function add_permission {
     fi
 }
 
+function create_isto_project {
+    local project_name=${1:-openshift}
+    local imagestream_file=${2:-https://raw.githubusercontent.com/openshift/origin/master/examples/image-streams/image-streams-rhel7.json}
+    echo "Creating imagestream under openshift namespace..."
+    $SSH "oc create -n $project_name -f $imagestream_file"
+}
+
+function create_default_pods {
+    # --images='openshift/origin-${component}:latest
+    $SSH "oc delete dc --all -n default; oc delete rc --all -n default; oc delete pods --all -n default; oc delete svc --all -n default; oc delete is --all -n openshift"
+    # Add permission for creating router
+    $SSH "oadm policy add-scc-to-user privileged system:serviceaccount:default:default"
+    echo "Starting to create registry and router"
+    $SSH "export CURL_CA_BUNDLE=/etc/origin/master/ca.crt; \
+          chmod a+rwX /etc/origin/master/admin.kubeconfig; \
+          chmod +r /etc/origin/master/openshift-registry.kubeconfig; \
+          oadm registry --create --credentials=/etc/origin/master/openshift-registry.kubeconfig --config=/etc/origin/master/admin.kubeconfig; \
+          oadm  router --credentials=/etc/origin/master/openshift-router.kubeconfig --config=/etc/origin/master/admin.kubeconfig --service-account=default"
+}
 function start_origin_openshift {
     set_bash "sshos" "$SSH"
 
@@ -87,16 +106,13 @@ function start_origin_openshift {
     echo "Starting Openshift Server"
     $SSH "echo export KUBECONFIG=/etc/origin/master/$ADMIN_CONFIG >> ~/.bashrc; nohup openshift start --node-config=$node_config/node-config.yaml --master-config=$MASTER_CONFIG &> openshift.log &"
     sleep 23
-    # --images='openshift/origin-${component}:latest
-    $SSH "oc delete dc --all -n default; oc delete rc --all -n default; oc delete pods --all -n default; oc delete svc --all -n default"
-    # Add permission for creating router
-    $SSH "oadm policy add-scc-to-user privileged system:serviceaccount:default:default"
-    echo "Starting to create registry and router"
-    $SSH "export CURL_CA_BUNDLE=/etc/origin/master/ca.crt; \
-          chmod a+rwX /etc/origin/master/admin.kubeconfig; \
-          chmod +r /etc/origin/master/openshift-registry.kubeconfig; \
-          oadm registry --create --credentials=/etc/origin/master/openshift-registry.kubeconfig --config=/etc/origin/master/admin.kubeconfig; \
-          oadm  router --credentials=/etc/origin/master/openshift-router.kubeconfig --config=/etc/origin/master/admin.kubeconfig --service-account=default"
+
+    local default_pod_num=$(get_resource_num "\(registry\|router\)" "pods" "default" "ssh")
+    if [ 0 -eq $default_pod_num ];
+    then
+        create_default_pods
+        create_isto_project
+    fi
 }
 
 function clone_gitrepo {
@@ -173,7 +189,13 @@ function fix_oc_permission {
 function get_resource_num {
     local regexp="$1"
     local resource="$2"
-    oc get $resource| sed -n "/$regexp/p" |wc -l
+    local project_name="${3:-$PROJECT}"
+    if [ -z "$4" ];
+    then
+        oc get $resource -n $project_name | sed -n "/$regexp/p" |wc -l
+    else
+        $SSH "oc get $resource -n $project_name | sed -n \"/$regexp/p\" |wc -l"
+    fi
 }
 
 function delete_oauthclient {
@@ -503,10 +525,15 @@ function main {
     local del_project=''
 	while getopts ":dsr:i:n:p:o:m:" opt; do
         case $opt in
-            d) del_project='--del-proj' ;;
-            p) PROJECT="$OPTARG" ;;
-            s) START_OPENSHIFT="true" ;;
-            m) OS_MASTER="$OPTARG" ;;
+            d) del_project='--del-proj'
+               ;;
+            p) PROJECT="$OPTARG"
+               ;;
+            s) START_OPENSHIFT="true"
+               ;;
+            m) OS_MASTER="$OPTARG"
+               SSH="ssh -i $pem_file -o identitiesonly=yes $MASTER_USER@$OS_MASTER"
+               ;;
         esac
     done
 
