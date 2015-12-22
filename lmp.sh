@@ -292,8 +292,8 @@ function set_annotation {
 
 SA_metrics_deployer="https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics-deployer-setup.yaml"
 HCH_stack="https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics.yaml"
-Image_prefix="openshift/origin-"
-#Image_prefix="rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/"
+#Image_prefix="openshift/origin-"
+Image_prefix="rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/"
 Image_version="latest"
 Use_pv=false
 
