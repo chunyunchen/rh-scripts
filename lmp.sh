@@ -307,7 +307,7 @@ function up_hch_stack {
     # Create the Hawkular Deployer Secret
     oc secrets new metrics-deployer nothing=/dev/null
     # Deploy hch stack
-    oc process -f $HCH_stack -v HAWKULAR_METRICS_HOSTNAME=$Hawkular_metrics_appname.$SUBDOMAIN,IMAGE_PREFIX=$Image_prefix,IMAGE_VERSION=$Image_version,USE_PERSISTENT_STORAGE=$Use_pv,MASTER_URL=https://$OS_MASTER:8443 \
+    oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=$Hawkular_metrics_appname.$SUBDOMAIN,IMAGE_PREFIX=$Image_prefix,IMAGE_VERSION=$Image_version,USE_PERSISTENT_STORAGE=$Use_pv,MASTER_URL=https://$OS_MASTER:8443 \
     |oc create -f -
     check_resource_validation "starting Metrics stack" "\(heapster\|hawkular\).\+1\/1\s\+Running"
 }
@@ -335,7 +335,7 @@ API
     fix_oc_permission edit system:serviceaccount:$PROJECT:logging-deployer
     fix_oadm_permission cluster-reader system:serviceaccount:$PROJECT:aggregated-logging-fluentd
     # Deploy efk stack
-    oc process -f $EFK_deployer -v ENABLE_OPS_CLUSTER=$torf,IMAGE_PREFIX=$Image_prefix,KIBANA_HOSTNAME=$Kibana_appname.$SUBDOMAIN,KIBANA_OPS_HOSTNAME=$Kibana_ops_appname.$SUBDOMAIN,PUBLIC_MASTER_URL=https://$OS_MASTER:8443,ES_INSTANCE_RAM=$ES_ram,ES_CLUSTER_SIZE=$ES_cluster_size,IMAGE_VERSION=$Image_version,MASTER_URL=https://$OS_MASTER:8443 |oc create -f -
+    oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=$torf,IMAGE_PREFIX=$Image_prefix,KIBANA_HOSTNAME=$Kibana_appname.$SUBDOMAIN,KIBANA_OPS_HOSTNAME=$Kibana_ops_appname.$SUBDOMAIN,PUBLIC_MASTER_URL=https://$OS_MASTER:8443,ES_INSTANCE_RAM=$ES_ram,ES_CLUSTER_SIZE=$ES_cluster_size,IMAGE_VERSION=$Image_version,MASTER_URL=https://$OS_MASTER:8443 |oc create -f -
     check_resource_validation "completing EFK deployer" "\logging-deployer.\+0\/1\s\+Completed" "1"
     # Create the supporting definitions
     oc process logging-support-template | oc create -f -
