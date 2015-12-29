@@ -166,7 +166,7 @@ function fix_oadm_permission {
     local user="$2"
     if [ "$CURLORSSH" == "ssh" ];
     then
-        $SSH "oadm policy add-cluster-role-to-user $role $user"
+        oadm policy add-cluster-role-to-user $role $user
     else
         oadm policy add-cluster-role-to-user $role $user --config=$RESULT_DIR/$ADMIN_CONFIG
     fi

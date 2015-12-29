@@ -1,2 +1,2 @@
 # scripts
-From local dirs
+From local dirirc.lab.bos.redhat.com s
