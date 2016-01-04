@@ -112,6 +112,7 @@ function start_origin_openshift {
     then
         create_default_pods
         create_isto_project
+        clone_gitrepo
     fi
 }
 
@@ -152,7 +153,6 @@ function add_public_url {
             else
                 if [ "true" == "$START_OPENSHIFT" ];
                 then
-                    clone_gitrepo
                     start_origin_openshift
                 fi
             fi
