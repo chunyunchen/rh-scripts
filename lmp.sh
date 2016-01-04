@@ -73,7 +73,7 @@ function create_isto_project {
     local project_name=${1:-openshift}
     local imagestream_file=${2:-https://raw.githubusercontent.com/openshift/origin/master/examples/image-streams/image-streams-rhel7.json}
     echo "Creating imagestream under openshift namespace..."
-    $SSH "oc create -n $project_name -f $imagestream_file"
+    $SSH "oc create -n $project_name -f $imagestream_file && oc create -n $project_name -f https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics.yaml && oc create -n $project_name -f https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployment/deployer.yaml"
 }
 
 function create_default_pods {
