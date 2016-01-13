@@ -88,6 +88,32 @@ function create_default_pods {
           oadm registry --create --credentials=/etc/origin/master/openshift-registry.kubeconfig --config=/etc/origin/master/admin.kubeconfig; \
           oadm  router --credentials=/etc/origin/master/openshift-router.kubeconfig --config=/etc/origin/master/admin.kubeconfig --service-account=default"
 }
+
+function pull_metrics_and_logging_images_from_dockerhub {
+    echo "Pulling down metrics and logging images form DockerHub registry..."
+    $SSH "docker pull openshift/origin-metrics-hawkular-metrics;\
+          docker pull openshift/origin-metrics-heapster;\
+          docker pull openshift/origin-metrics-cassandra;\
+          docker pull openshift/origin-metrics-deployer;\
+          docker pull openshift/origin-metrics-heapster-base;\
+          docker pull openshift/origin-logging-kibana;\
+          docker pull openshift/origin-logging-fluentd;\
+          docker pull openshift/origin-logging-elasticsearch;\
+          docker pull openshift/origin-logging-deployment;\
+          docker pull openshift/origin-logging-auth-proxy;\
+          docker tag openshift/origin-metrics-hawkular-metrics rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/metrics-hawkular-metrics;\
+          docker tag openshift/origin-metrics-heapster rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/metrics-heapster;\
+          docker tag openshift/origin-metrics-cassandra rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/metrics-cassandra;\
+          docker tag openshift/origin-metrics-deployer rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/metrics-deployer;\
+          docker tag openshift/origin-metrics-heapster-base rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/metrics-heapster-base;\
+          docker tag openshift/origin-logging-kibana rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/logging-kibana;\
+          docker tag openshift/origin-logging-fluentd rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/logging-fluentd;\
+          docker tag openshift/origin-logging-elasticsearch rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/logging-elasticsearch;\
+          docker tag openshift/origin-logging-deployment rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/logging-deployment;\
+          docker tag openshift/origin-logging-auth-proxy rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/logging-auth-proxy;"
+
+}
+
 function start_origin_openshift {
     set_bash "sshos" "$SSH"
 
@@ -106,12 +132,16 @@ function start_origin_openshift {
     echo "Starting Openshift Server"
     $SSH "echo export KUBECONFIG=/etc/origin/master/$ADMIN_CONFIG >> ~/.bashrc; nohup openshift start --node-config=$node_config/node-config.yaml --master-config=$MASTER_CONFIG &> openshift.log &"
     sleep 23
+    # For automation cases related admin role
+    $SSH "oc config use-context default/${OS_MASTER//./-}:8443/system:admin && mkdir -p /root/.kube && cp /etc/origin/master/admin.kubeconfig /root/.kube/config"
+
 
     local default_pod_num=$(get_resource_num "\(registry\|router\)" "pods" "default" "ssh")
     if [ 0 -eq $default_pod_num ];
     then
         create_default_pods
         create_isto_project
+        pull_metrics_and_logging_images_from_dockerhub
         clone_gitrepo
     fi
 }
@@ -127,8 +157,6 @@ Kibana_appname="kibana"
 # Add public URL in /etc/origin/master/master-config.yaml for logging and metrics on master machine
 function add_public_url {
     local restart_master="no"
-
-    get_subdomain
 
     if [ "$CURLORSSH" == "ssh" ];
     then
@@ -237,6 +265,7 @@ function create_project {
 # Log into OpenShift server and create PROJECT/namespace for user
 function login_openshift {
     local del_proj="$1"
+    get_subdomain
     add_public_url
     oc login $OS_MASTER -u $OS_USER -p $OS_PASSWD
     if [ "$CURLORSSH" != "ssh" ];
