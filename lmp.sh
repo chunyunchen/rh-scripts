@@ -111,7 +111,6 @@ function pull_metrics_and_logging_images_from_dockerhub {
           docker tag openshift/origin-logging-elasticsearch rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/logging-elasticsearch;\
           docker tag openshift/origin-logging-deployment rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/logging-deployment;\
           docker tag openshift/origin-logging-auth-proxy rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/logging-auth-proxy;"
-
 }
 
 function start_origin_openshift {
