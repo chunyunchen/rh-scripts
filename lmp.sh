@@ -74,6 +74,8 @@ function add_admin_permission {
 function remove_admin_permission {
     local role_name="${1:-cluster-admin}"
     local user_name="${2:-$OS_USER}"
+
+    echo "Removed *cluster-admin* role from user *$user_name*"
     oadm policy remove-cluster-role-from-user $role_name $user_name
 }
 
