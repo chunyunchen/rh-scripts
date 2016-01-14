@@ -59,14 +59,22 @@ function get_subdomain {
     SUBDOMAIN=${SUBDOMAIN:-example.com}
 }
 
-# add appropriate permissions for user
-function add_permission {
+# add admin permissions for user
+function add_admin_permission {
+    local role_name="${1:-cluster-admin}"
+    local user_name="${2:-$OS_USER}"
     if [ "$CURLORSSH" == "ssh" ];
     then
-        $SSH "oadm policy add-cluster-role-to-user cluster-admin $OS_USER"
+        $SSH "oadm policy add-cluster-role-to-user $role_name $user_name"
     else
-        oadm policy add-cluster-role-to-user cluster-admin $OS_USER --config=$RESULT_DIR/$ADMIN_CONFIG
+        oadm policy add-cluster-role-to-user $role_name $user_name --config=$RESULT_DIR/$ADMIN_CONFIG
     fi
+}
+
+function remove_admin_permission {
+    local role_name="${1:-cluster-admin}"
+    local user_name="${2:-$OS_USER}"
+    oadm policy remove-cluster-role-from-user $role_name $user_name
 }
 
 function create_isto_project {
@@ -272,7 +280,7 @@ function login_openshift {
         curl $ADMIN_CONFIG_URL -o $RESULT_DIR/$ADMIN_CONFIG 2>&-
         curl $MASTER_CONFIG_URL -o $RESULT_DIR/$MASTER_CONFIG_FILE 2>&-
     fi
-    add_permission
+    add_admin_permission
 
     CURRENT_USER_TOKEN=$(get_token_for_current_user)
 
@@ -338,6 +346,7 @@ function up_hch_stack {
     oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=$Hawkular_metrics_appname.$SUBDOMAIN,IMAGE_PREFIX=$Image_prefix,IMAGE_VERSION=$Image_version,USE_PERSISTENT_STORAGE=$Use_pv,MASTER_URL=https://$OS_MASTER:8443 \
     |oc create -f -
     check_resource_validation "starting Metrics stack" "\(heapster\|hawkular\).\+1\/1\s\+Running"
+    remove_admin_permission
 }
 
 ES_ram="1024M"
@@ -381,6 +390,7 @@ API
     oc scale dc/logging-fluentd --replicas=$fluentd_pod_num
     oc scale rc/logging-fluentd-1 --replicas=$fluentd_pod_num
     check_resource_validation "starting EFK stack" "\(logging-es\|logging-fluentd\|logging-kibana\).\+\+Running" "$((4+$fluentd_pod_num))"
+    remove_admin_permission
 }
 
 # Must have *cluster-admin* permission for log in user
