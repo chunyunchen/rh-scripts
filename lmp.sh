@@ -402,8 +402,8 @@ API
     fi
     oc scale dc/logging-fluentd --replicas=$fluentd_pod_num
     oc scale rc/logging-fluentd-1 --replicas=$fluentd_pod_num
-    check_resource_validation "starting EFK stack" "\(logging-es\|logging-fluentd\|logging-kibana\).\+\+Running" "$(($additional_num + $fluentd_pod_num))"
     remove_admin_permission
+    check_resource_validation "starting EFK stack" "\(logging-es\|logging-fluentd\|logging-kibana\).\+\+Running" "$(($additional_num + $fluentd_pod_num))"
 }
 
 # Must have *cluster-admin* permission for log in user
