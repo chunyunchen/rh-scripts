@@ -374,7 +374,12 @@ API
     fix_oc_permission edit system:serviceaccount:$PROJECT:logging-deployer
     fix_oadm_permission cluster-reader system:serviceaccount:$PROJECT:aggregated-logging-fluentd
     # Deploy efk stack
+    if [ "true" == "$torf" ];
+    then
     oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=$torf,IMAGE_PREFIX=$Image_prefix,KIBANA_HOSTNAME=$Kibana_appname.$SUBDOMAIN,KIBANA_OPS_HOSTNAME=$Kibana_ops_appname.$SUBDOMAIN,PUBLIC_MASTER_URL=https://$OS_MASTER:8443,ES_INSTANCE_RAM=$ES_ram,ES_CLUSTER_SIZE=$ES_cluster_size,IMAGE_VERSION=$Image_version,MASTER_URL=https://$OS_MASTER:8443 |oc create -f -
+    else
+    oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=false,IMAGE_PREFIX=$Image_prefix,KIBANA_HOSTNAME=$Kibana_appname.$SUBDOMAIN,PUBLIC_MASTER_URL=https://$OS_MASTER:8443,ES_INSTANCE_RAM=$ES_ram,ES_CLUSTER_SIZE=$ES_cluster_size,IMAGE_VERSION=$Image_version,MASTER_URL=https://$OS_MASTER:8443 |oc create -f -
+    fi
     check_resource_validation "completing EFK deployer" "\logging-deployer.\+0\/1\s\+Completed" "1"
     # Create the supporting definitions
     oc process logging-support-template | oc create -f -
