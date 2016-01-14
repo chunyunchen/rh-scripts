@@ -355,7 +355,7 @@ ES_ram="1024M"
 ES_cluster_size="1"
 EFK_deployer="https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployment/deployer.yaml"
 # should be "true" or "false" value
-torf=false
+TORF=false
 
 # efk = elasticsearch, fluentd & kibana, they are Logging part
 function up_efk_stack {
@@ -376,11 +376,11 @@ API
     fix_oadm_permission cluster-reader system:serviceaccount:$PROJECT:aggregated-logging-fluentd
     # Deploy efk stack
     local kibana_ops_hostname=""
-    if [ "true" == "$torf" ];
+    if [ "true" == "$TORF" ];
     then
         kibana_ops_hostname="KIBANA_OPS_HOSTNAME=$Kibana_ops_appname.$SUBDOMAIN"
     fi
-    oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=$torf,IMAGE_PREFIX=$Image_prefix,KIBANA_HOSTNAME=$Kibana_appname.$SUBDOMAIN,$kibana_ops_hostname,PUBLIC_MASTER_URL=https://$OS_MASTER:8443,ES_INSTANCE_RAM=$ES_ram,ES_CLUSTER_SIZE=$ES_cluster_size,IMAGE_VERSION=$Image_version,MASTER_URL=https://$OS_MASTER:8443 |oc create -f -
+    oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=$TORF,IMAGE_PREFIX=$Image_prefix,KIBANA_HOSTNAME=$Kibana_appname.$SUBDOMAIN,$kibana_ops_hostname,PUBLIC_MASTER_URL=https://$OS_MASTER:8443,ES_INSTANCE_RAM=$ES_ram,ES_CLUSTER_SIZE=$ES_cluster_size,IMAGE_VERSION=$Image_version,MASTER_URL=https://$OS_MASTER:8443 |oc create -f -
     check_resource_validation "completing EFK deployer" "\logging-deployer.\+0\/1\s\+Completed" "1"
     # Create the supporting definitions
     oc process logging-support-template | oc create -f -
@@ -396,7 +396,7 @@ API
     # Scale Fluentd Pod
     local fluentd_pod_num=$(get_node_num)
     local additional_num=2
-    if [ "true" == "$torf" ];
+    if [ "true" == "$TORF" ];
     then
         additional_num=4
     fi
@@ -574,9 +574,11 @@ function main {
     # If '-d' is specified, then will delete the PROJECT named "$PROJECT" and re-create
     local fun_obj="${!#}"
     local del_project=''
-	while getopts ":dsr:i:n:p:o:m:" opt; do
+	while getopts ":dskr:i:n:p:o:m:" opt; do
         case $opt in
             d) del_project='--del-proj'
+               ;;
+            k) TORF='true'
                ;;
             p) PROJECT="$OPTARG"
                ;;
