@@ -598,7 +598,8 @@ function build_camel_docker_image {
     local target_image="chunyunchen/cdi-camel:$tag"
     local source_image="fabric8/cdi-camel:$tag"
     $SSH "docker tag $source_image $target_image && docker push $target_image"
-    echo "${red_prefix}Note:$color_suffix use *${blue_prefix}$target_image${color_suffix}* to create app, then add *${green_prefix}name: jolokia${color_suffix}* to DC(yaml format) under ${green_prefix}spec.containers.ports${color_suffix}"
+    echo "oc new-app --docker-image=$target_image$ ##To create app"
+    echo "${red_prefix}Note:$color_suffix Need add *${green_prefix}name: jolokia${color_suffix}* to DC(yaml format) under ${green_prefix}spec.containers.ports${color_suffix}"
 }
 
 # For testing JVM console related
