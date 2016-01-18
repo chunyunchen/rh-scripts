@@ -30,6 +30,7 @@ ADMIN_CONFIG_URL="$CONFIG_HOST/$ADMIN_CONFIG"
 MASTER_CONFIG_URL="$CONFIG_HOST/$MASTER_CONFIG_FILE"
 CURLORSSH="ssh"
 START_OPENSHIFT="false"
+SUDO=""
 ########
 podproject=${OS_USER}pj2
 podimage="bmeng/hello-openshift"
@@ -39,6 +40,13 @@ loopScaleNum=60
 
 set -e
 source ~/scripts/common.sh
+
+function set_sudo {
+    if [ "root" != "$MASTER_USER" ];
+    then
+        SUDO="sudo"
+    fi
+}
 
 function get_nodes {
     oc get node |grep -v -e "SchedulingDisabled" -e "STATUS" |awk ' {print $1}'
@@ -570,7 +578,41 @@ function usage {
     echo "pms: Add properly permission to service accout, mostly used for debugging"
 }
 
+# Show json to create under openshift project for tsting JVM console related
+function show_is_fis-java-openshift {
+    is_fis=/home/chunchen/test/cfile/is_fis-java-openshift.json
+    echo "From File: $is_fis"
+    echo "Available Image Prefix: rcm-img-docker01.build.eng.bos.redhat.com:5001 | registry.access.redhat.com "
+    cat $is_fis
+    xclip -sel clipboard /home/chunchen/test/cfile/is_fis-java-openshift.json
+    xclip /home/chunchen/test/cfile/is_fis-java-openshift.json
+    echo -e "${green_prefix}The file content have been pasted to clipboard, paste via Ctrl+V or Insert+Shift${color_suffix}"
+}
+
+function build_camel_docker_image {
+    $SSH "$SUDO yum install -y maven &&\
+          git clone https://github.com/fabric8io/ipaas-quickstarts.git &&\
+          cd ipaas-quickstarts/quickstart/cdi/camel &&\
+          mvn clean install docker:build && "
+    local tag=$($SSH "docker images|grep camel | head -1 | awk '{print $2}'")
+    local target_image="chunyunchen/cdi-camel:$tag"
+    local source_image="fabric8/cdi-camel:$tag"
+    $SSH "docker tag $source_image $target_image && docker push $target_image"
+    echo "${red_prefix}Note:$color_suffix use *${blue_prefix}$target_image${color_suffix}* to create app, then add *${green_prefix}name: jolokia${color_suffix}* to DC(yaml format) under ${green_prefix}spec.containers.ports${color_suffix}"
+}
+
+# For testing JVM console related
+function create_camel_apps {
+    camel_template=/home/chunchen/test/cfile/camel-quickstart-template.json
+
+    echo "From file: $camel_template"
+    echo "Create camel apps..."
+    oc new-app --file=$camel_template --param=GIT_REPO=https://github.com/fabric8io/ipaas-quickstarts.git,GIT_REF=redhat,GIT_CONTEXT_DIR=quickstart/cdi/camel
+}
+
 function main {
+
+    set_sudo
     # If '-d' is specified, then will delete the PROJECT named "$PROJECT" and re-create
     local fun_obj="${!#}"
     local del_project=''
@@ -619,6 +661,15 @@ function main {
             ;;
         "startall")
             start_hch_and_efk "$del_project"
+            ;;
+        "camel")
+            create_camel_apps
+            ;;
+        "show-is")
+            show_is_fis-java-openshift
+            ;;
+        "build_camel")
+            build_camel_docker_image
             ;;
         *) usage
             ;;

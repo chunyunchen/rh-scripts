@@ -1,5 +1,9 @@
 #!/bin/bash
 
+red_prefix="\033[31;49;1m"
+green_prefix="\033[32;49;1m"
+blue_prefix="\033[34;49;1m"
+color_suffix="\033[39;49;0m"
 
 function set_bash {
     local bash_name="$1"
