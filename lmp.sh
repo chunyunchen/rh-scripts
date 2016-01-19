@@ -71,6 +71,8 @@ function get_subdomain {
 function add_admin_permission {
     local role_name="${1:-cluster-admin}"
     local user_name="${2:-$OS_USER}"
+
+    echo "${red_prefix}!! Add *$role_name* role to user *$user_name* !!${color_suffix}"
     if [ "$CURLORSSH" == "ssh" ];
     then
         $SSH "oadm policy add-cluster-role-to-user $role_name $user_name"
@@ -83,7 +85,7 @@ function remove_admin_permission {
     local role_name="${1:-cluster-admin}"
     local user_name="${2:-$OS_USER}"
 
-    echo "Removed *cluster-admin* role from user *$user_name*"
+    echo "${green_prefix}^_^ Removed *cluster-admin* role from user *$user_name* ^_^${color_suffix}"
     oadm policy remove-cluster-role-from-user $role_name $user_name
 }
 
@@ -283,7 +285,7 @@ function create_project {
 function login_openshift {
     local del_proj="$1"
     get_subdomain
-    add_public_url
+#    add_public_url
     oc login $OS_MASTER -u $OS_USER -p $OS_PASSWD
     if [ "$CURLORSSH" != "ssh" ];
     then
@@ -611,6 +613,19 @@ function create_camel_apps {
     oc new-app --file=$camel_template --param=GIT_REPO=https://github.com/fabric8io/ipaas-quickstarts.git,GIT_REF=redhat,GIT_CONTEXT_DIR=quickstart/cdi/camel
 }
 
+function chain_build {
+    # For testing chain-build functional feature
+    echo "Start creating resources..."
+    local root_dir=/home/chunchen/test/cfile
+    local sti_json=chainbuild-sti.json
+    local docker_json=chainbuild-docker.json
+    oc new-app --file=$root_dir/$sti_json && oc new-app --file=$root_dir/$docker_json
+    check_resource_validation "first s2i build to completed" "frontend-sti-1.\+Running" "2"
+    oc start-build python-sample-build-sti
+    check_resource_validation "second s2i build to completed" "python-sample-build-sti.\+Completed" "2"
+    oc get build
+}
+
 function main {
 
     set_sudo
@@ -671,6 +686,9 @@ function main {
             ;;
         "build_camel")
             build_camel_docker_image
+            ;;
+        "chainbuild")
+            chain_build
             ;;
         *) usage
             ;;
