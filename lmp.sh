@@ -72,7 +72,7 @@ function add_admin_permission {
     local role_name="${1:-cluster-admin}"
     local user_name="${2:-$OS_USER}"
 
-    echo "${red_prefix}!! Add *$role_name* role to user *$user_name* !!${color_suffix}"
+    echo -e "${red_prefix}!! Add *$role_name* role to user *$user_name* !!${color_suffix}"
     if [ "$CURLORSSH" == "ssh" ];
     then
         $SSH "oadm policy add-cluster-role-to-user $role_name $user_name"
@@ -85,7 +85,7 @@ function remove_admin_permission {
     local role_name="${1:-cluster-admin}"
     local user_name="${2:-$OS_USER}"
 
-    echo "${green_prefix}^_^ Removed *cluster-admin* role from user *$user_name* ^_^${color_suffix}"
+    echo -e "${green_prefix}^_^ Removed *cluster-admin* role from user *$user_name* ^_^${color_suffix}"
     oadm policy remove-cluster-role-from-user $role_name $user_name
 }
 
@@ -309,12 +309,12 @@ function check_resource_validation {
     local regexp="$2"
     local resource_num="${3:-3}"
     local resource="${4:-pods}"
-    echo "Wait $msg_notification..."
+    echo -e "${blue_prefix}Wait $msg_notification...${color_suffix}"
     while [ "$(get_resource_num "$regexp" "$resource")" != "$resource_num" ]
     do
         sleep 6
     done
-    echo "Success for $msg_notification!"
+    echo -e "${green_prefix}Success for $msg_notification!${color_suffix}"
 }
 
 # get the names of specific status pods, will get all pods in all PROJECTs on master by default
@@ -615,10 +615,16 @@ function create_camel_apps {
 
 function chain_build {
     # For testing chain-build functional feature
-    echo "Start creating resources..."
     local root_dir=/home/chunchen/test/cfile
     local sti_json=chainbuild-sti.json
     local docker_json=chainbuild-docker.json
+    PROJECT=$PROJECT-chain
+
+    delete_project $PROJECT
+    check_resource_validation "deleting project *$PROJECT*" "$PROJECT" "0" "projects"
+    oc new-project $PROJECT
+    echo -e "${blue_prefix}Start creating resources...${color_suffix}"
+    local root_dir=/home/chunchen/test/cfile
     oc new-app --file=$root_dir/$sti_json && oc new-app --file=$root_dir/$docker_json
     check_resource_validation "first s2i build to completed" "frontend-sti-1.\+Running" "2"
     oc start-build python-sample-build-sti
