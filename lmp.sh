@@ -72,7 +72,7 @@ function add_admin_permission {
     local role_name="${1:-cluster-admin}"
     local user_name="${2:-$OS_USER}"
 
-    echo -e "${red_prefix}!! Add *$role_name* role to user *$user_name* !!${color_suffix}"
+    echo -e "${red_prefix}!! Added *$role_name* role to user *$user_name* !!${color_suffix}"
     if [ "$CURLORSSH" == "ssh" ];
     then
         $SSH "oadm policy add-cluster-role-to-user $role_name $user_name"
