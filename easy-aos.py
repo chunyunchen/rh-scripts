@@ -7,7 +7,7 @@ from ConfigParser import SafeConfigParser
 class AOS(object):
     '''Make easier for OpenShift tests!'''
 
-    osConfig = "./aos.config"
+    osConfig = "./aos.conf"
     osUSer=""
     osPasswd=""
     masterUser=""
