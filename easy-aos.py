@@ -7,9 +7,6 @@ from ConfigParser import SafeConfigParser
 class AOS(object):
     '''Make easier for OpenShift tests!'''
 
-    def __init__(self):
-        pass
-
     osConfig = "./aos.config"
     osUSer=""
     osPasswd=""
@@ -67,13 +64,35 @@ class AOS(object):
     def get_config():
         config = SafeConfigParser()
         config.read(AOS.osConfig)
+        AOS.osUser = config.get("user","os_user")
+        AOS.osPasswd = config.get("user","os_passwd")
+        AOS.masterUser = config.get("user","master_user")
+        AOS.master = config.get("master","master")
+        AOS.masterConfigRoot = config.get("master","master_config_root")
+        AOS.masterConfigFile = config.get("master","master_config_file")
+        AOS.kubeConfigFile = config.get("master","kube_config_file")
+        AOS.pemFile = config.get("ssh","pem_file")
+        AOS.hawkularMetricsAppname = config.get("image","hawkular_metrics_appname")
+        AOS.kibanaOpsAppname = config.get("image","kibana_ops_appname")
+        AOS.kibanaAppname = config.get("image","kibana_appname")
+        AOS.SAMetricsDeployer = config.get("image","serviceaccount_metrics_deployer")
+        AOS.HCHStack = config.get("image","hch_stack")
+        AOS.imagePrefix = config.get("image","image_prefix")
+        AOS.mageVersion = config.get("image","image_version")
+        AOS.enablePV = config.getboolean("image","enable_pv")
+        AOS.ESRam = config.get("image","elastic_ram")
+        AOS.ESClusterSize = config.get("image","elastic_cluster_size")
+        AOS.EFKDeployer = config.get("image","efk_deployer")
 
     @classmethod
-    def echo_msg(cls,msg):
-        print msg
+    def check_validation(cls,):
+        if not AOS.master:
+            print "Please config '[master]->master' in config file or specify OpenShift master via '-m' within command line!"
+            os.sys.exit()
+        print "preparation is well"
 
 
 if __name__ == "__main__":
    AOS.generate_default_config()
    AOS.get_config()
-   AOS.echo_msg("hello, you!")
+   AOS.check_validation()
