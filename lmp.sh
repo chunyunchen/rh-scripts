@@ -138,6 +138,7 @@ function start_origin_openshift {
     set_bash "sshos" "$SSH"
 
     local rs=`$SSH "openshift start --public-master=$OS_MASTER:8443 --write-config=/etc/origin"`
+    echo $rs
     local node_config=$(echo "$rs" |grep -i "Created node config" |awk '{print $NF}')
     $SSH "sed -i -e '/loggingPublicURL:/d' -e '/metricsPublicURL:/d' $MASTER_CONFIG"
     # Delete existing OpenShift instance
