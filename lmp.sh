@@ -111,26 +111,27 @@ function create_default_pods {
 
 function pull_metrics_and_logging_images_from_dockerhub {
     echo "Pulling down metrics and logging images form DockerHub registry..."
-    $SSH "docker pull openshift/origin-metrics-hawkular-metrics;\
-          docker pull openshift/origin-metrics-heapster;\
-          docker pull openshift/origin-metrics-cassandra;\
-          docker pull openshift/origin-metrics-deployer;\
-          docker pull openshift/origin-metrics-heapster-base;\
-          docker pull openshift/origin-logging-kibana;\
-          docker pull openshift/origin-logging-fluentd;\
-          docker pull openshift/origin-logging-elasticsearch;\
-          docker pull openshift/origin-logging-deployment;\
-          docker pull openshift/origin-logging-auth-proxy;\
-          docker tag openshift/origin-metrics-hawkular-metrics rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/metrics-hawkular-metrics;\
-          docker tag openshift/origin-metrics-heapster rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/metrics-heapster;\
-          docker tag openshift/origin-metrics-cassandra rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/metrics-cassandra;\
-          docker tag openshift/origin-metrics-deployer rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/metrics-deployer;\
-          docker tag openshift/origin-metrics-heapster-base rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/metrics-heapster-base;\
-          docker tag openshift/origin-logging-kibana rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/logging-kibana;\
-          docker tag openshift/origin-logging-fluentd rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/logging-fluentd;\
-          docker tag openshift/origin-logging-elasticsearch rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/logging-elasticsearch;\
-          docker tag openshift/origin-logging-deployment rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/logging-deployment;\
-          docker tag openshift/origin-logging-auth-proxy rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/logging-auth-proxy;"
+    #local image_prefix="openshift/origin-"
+    local image_prefix="registry.access.redhat.com/openshift3/"
+    local image_prefix2="rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/"
+    $SSH "docker pull ${image_prefix}metrics-hawkular-metrics;\
+          docker pull ${image_prefix}metrics-heapster;\
+          docker pull ${image_prefix}metrics-cassandra;\
+          docker pull ${image_prefix}metrics-deployer;\
+          docker pull ${image_prefix}logging-kibana;\
+          docker pull ${image_prefix}logging-fluentd;\
+          docker pull ${image_prefix}logging-elasticsearch;\
+          docker pull ${image_prefix}logging-deployment;\
+          docker pull ${image_prefix}logging-auth-proxy;\
+          docker tag ${image_prefix}metrics-hawkular-metrics ${image_prefix2}metrics-hawkular-metrics;\
+          docker tag ${image_prefix}metrics-heapster ${image_prefix2}metrics-heapster;\
+          docker tag ${image_prefix}metrics-cassandra ${image_prefix2}metrics-cassandra;\
+          docker tag ${image_prefix}metrics-deployer ${image_prefix2}metrics-deployer;\
+          docker tag ${image_prefix}logging-kibana ${image_prefix2}logging-kibana;\
+          docker tag ${image_prefix}logging-fluentd ${image_prefix2}logging-fluentd;\
+          docker tag ${image_prefix}logging-elasticsearch ${image_prefix2}logging-elasticsearch;\
+          docker tag ${image_prefix}logging-deployment ${image_prefix2}logging-deployment;\
+          docker tag ${image_prefix}logging-auth-proxy ${image_prefix2}logging-auth-proxy;"
 }
 
 function start_origin_openshift {
@@ -285,7 +286,7 @@ function create_project {
 function login_openshift {
     local del_proj="$1"
     get_subdomain
-#    add_public_url
+    add_public_url
     oc login $OS_MASTER -u $OS_USER -p $OS_PASSWD
     if [ "$CURLORSSH" != "ssh" ];
     then
@@ -342,6 +343,8 @@ SA_metrics_deployer="https://raw.githubusercontent.com/openshift/origin-metrics/
 HCH_stack="https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics.yaml"
 #Image_prefix="openshift/origin-"
 Image_prefix="rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/"
+#Image_prefix="brew-pulp-docker01.web.qa.ext.phx1.redhat.com:8888/openshift3/"
+#Image_prefix="registry.access.redhat.com/openshift3/"
 Image_version="latest"
 Use_pv=false
 
@@ -621,8 +624,8 @@ function chain_build {
     PROJECT=$PROJECT-chain
 
     delete_project $PROJECT
-    check_resource_validation "deleting project *$PROJECT*" "$PROJECT" "0" "projects"
-    oc new-project $PROJECT
+    #check_resource_validation "deleting project *$PROJECT*" "$PROJECT" "0" "projects"
+    create_project $PROJECT
     echo -e "${blue_prefix}Start creating resources...${color_suffix}"
     local root_dir=/home/chunchen/test/cfile
     oc new-app --file=$root_dir/$sti_json && oc new-app --file=$root_dir/$docker_json
