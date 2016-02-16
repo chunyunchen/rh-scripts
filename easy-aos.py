@@ -87,6 +87,7 @@ class AOS(object):
         AOS.ESClusterSize = config.get("image","elastic_cluster_size")
         AOS.EFKDeployer = config.get("image","efk_deployer")
         AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
+        AOS.osProject = re.match(r'\w+',AOS.osUser).group(0)
 
     @staticmethod
     def echo_command(cmd="Please wait..."):
@@ -155,6 +156,26 @@ class AOS(object):
             AOS.echo("Removed '%s' role from *%s* user." % (role_name,AOS.osUser))
         command = "%s %s %s %s" % (pre_cmd,role_type,role_name,user)
         AOS.run_ssh_command(command,ssh=enableSSH)
+
+    @staticmethod
+    def resource_validate(cmd, reStr, dstNum=3, enableSsh=False):
+        outputs = AOS.run_ssh_command(cmd)
+        resource = re.findall(reStr,outputs)
+        while dstNum != len(resource):
+            time.sleep(6)
+            resource = re.findall(reStr,outputs)
+
+    @classmethod
+    def start_metrics_stack(cls):
+        AOS.echo("starting metrics stack...")
+        AOS.run_ssh_command("oc create -f %s" % AOS.SAMetricsDeployer, shell=False)
+        AOS.do_permission("add-cluster-role-to-user", "cluster-reader", "system:serviceaccount:%s:heapster" % AOS.osProject)
+        AOS.do_permission("add-role-to-user","edit", "system:serviceaccount:%s:metrics-deployer" % AOS.osProject)
+        AOS.run_ssh_command("oc secrets new metrics-deployer nothing=/dev/null",shell=False)
+        AOS.run_ssh_command("oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.$SUBDOMAIN,\
+        IMAGE_PREFIX=$Image_prefix,IMAGE_VERSION=$Image_version,USE_PERSISTENT_STORAGE=$Use_pv,MASTER_URL=https://$OS_MASTER:8443\
+        |oc create -f -" %s (AOS.hawkularMetricsAppname,))
+        resource_validate("oc get pods -n %s" % AOS.osProject,r"(.*heapster|.*hawkular).*Running.*")
 
     @classmethod
     def start_origin_openshift(cls):
