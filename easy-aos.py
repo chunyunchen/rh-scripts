@@ -175,7 +175,7 @@ class AOS(object):
         AOS.run_ssh_command("oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.$SUBDOMAIN,\
         IMAGE_PREFIX=$Image_prefix,IMAGE_VERSION=$Image_version,USE_PERSISTENT_STORAGE=$Use_pv,MASTER_URL=https://$OS_MASTER:8443\
         |oc create -f -" %s (AOS.hawkularMetricsAppname,))
-        resource_validate("oc get pods -n %s" % AOS.osProject,r"(.*heapster|.*hawkular).*Running.*")
+        resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*Running.*")
 
     @classmethod
     def start_origin_openshift(cls):
