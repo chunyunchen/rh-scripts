@@ -2,15 +2,16 @@
 
 import os, sys, re, time
 import pipes
-from subprocess import check_call,check_output,CalledProcessError
+from subprocess import check_call,check_output,CalledProcessError,STDOUT
 from ConfigParser import SafeConfigParser
+
 
 config = SafeConfigParser()
 class AOS(object):
     '''Make easier for OpenShift tests!'''
 
     osConfig = "./aos.conf"
-    osUSer=""
+    osUser=""
     osPasswd=""
     masterUser=""
     master=""
@@ -40,7 +41,7 @@ class AOS(object):
         config.add_section("project")
         config.add_section("image")
         config.add_section("ssh")
-        config.set('project','os_user','chunchen')
+        config.set('project','os_user','')
         config.set('project','os_passwd','redhat')
         config.set('project','master_user','root')
         config.set('master','master','')
@@ -100,7 +101,6 @@ class AOS(object):
         try:
             command = "date > /dev/null"
             remote_command = '%s {}'.format(pipes.quote(command)) % AOS.SSHIntoMaster
-            AOS.echo_command(remote_command)
             returncode = check_call(remote_command, shell=True,)
             return returncode
         except Exception, errMsg:
@@ -108,41 +108,58 @@ class AOS(object):
 
     @classmethod
     def check_validation(cls,):
+        AOS.echo("Checking confiures...")
+        AOS.generate_default_config()
+        AOS.get_config()
+        notification_items = []
         if not AOS.master:
-            print "Please config '[master].master' under %s or specify OpenShift master via '-m' within command line!" % os.path.abspath(AOS.osConfig)
+            notification_items.append("[master].master")
+        if not AOS.osUser:
+            notification_items.append("[project].os_user")
+        if 0 != len(notification_items):
+            print "Please set below parameter(s) under %s config file:" % os.path.abspath(AOS.osConfig)
+            print '\n'.join(notification_items)
             os.sys.exit()
+        AOS.ssh_validation()
 
     @staticmethod
-    def run_ssh_command(cmd, output=False, asShell=True,nossh=False):
-        remote_command = '%s {}'.format(pipes.quote(cmd)) % AOS.SSHIntoMaster
-        if nossh:
-            remote_command = cmd
+    def run_ssh_command(cmd, asShell=True,ssh=True):
+        remote_command = cmd
+        if ssh:
+            remote_command = '%s {}'.format(pipes.quote(cmd)) % AOS.SSHIntoMaster
         try:
-          if output:
-            outputs = check_output(remote_command, shell=asShell)
+            outputs = check_output(remote_command, shell=asShell, stderr=STDOUT)
             return outputs
-          else:
-            check_call(remote_command, shell=asShell)
-        except CalledProcessError,msg:
-            print type(msg),msg
+        except (CalledProcessError,OSError),e:
+            if "no process found" not in e.output:
+                AOS.echo(e.output)
+                print "Aborted!!!"
+                os.sys.exit()
 
     @classmethod
-    def do_permission(cls,role_type,role_name,user,admin=False):
+    def do_permission(cls,role_type,role_name,user=None):
 
+        if not user:
+            user = AOS.osUser
+        enableSSH = False
         pre_cmd = "oc policy"
-        if admin:
+        if "cluster" in role_type:
+            enableSSH = True
             pre_cmd = "oadm policy"
+        if "add-" in role_type:
+            if "cluster" in role_type:
+                AOS.echo("Note: *%s* user has '%s' admin role! Be Careful!!!" % (AOS.osUser,role_name))
+            else:
+                AOS.echo("Added '%s' role to *%s* user!" % (role_name,AOS.osUser))
+        elif "remove-" in role_type:
+            AOS.echo("Removed '%s' role from *%s* user." % (role_name,AOS.osUser))
         command = "%s %s %s %s" % (pre_cmd,role_type,role_name,user)
-        AOS.run_ssh_command(command,nossh=admin)
-
-    @classmethod
-    def get_openshift_resource(cls,resource="pods",project=AOS.osProject):
-        pass
+        AOS.run_ssh_command(command,ssh=enableSSH)
 
     @classmethod
     def start_origin_openshift(cls):
         AOS.echo("Starting OpenShift Service...")
-        outputs = AOS.run_ssh_command("openshift start --public-master=%s:8443 --write-config=/etc/origin" % AOS.master, output=True)
+        outputs = AOS.run_ssh_command("openshift start --public-master=%s:8443 --write-config=/etc/origin" % AOS.master)
         nodeConfigPath = outputs.rstrip().split()[-1]
         nodeConfig = os.path.join(nodeConfigPath,"node-config.yaml")
         masterConfig = os.path.join(AOS.masterConfigRoot, AOS.masterConfigFile)
@@ -152,9 +169,14 @@ class AOS(object):
         AOS.run_ssh_command("echo export KUBECONFIG=%s >> ~/.bashrc; nohup openshift start --node-config=%s --master-config=%s &> openshift.log &" % (kubeConfig,nodeConfig,masterConfig))
         AOS.echo("Wait 23 seconds for upping OpenShift...")
         time.sleep(23)
+
         # For automation cases related admin role
         master = AOS.master.replace('.','-')
         AOS.run_ssh_command("oc config use-context default/%s:8443/system:admin && mkdir -p /root/.kube && cp /etc/origin/master/admin.kubeconfig /root/.kube/config" % master)
+        outputs = AOS.run_ssh_command("oc get pods -n default")
+        allRunningPods = re.findall(r'docker-registry.*Running.*|router-1.*Running.*', outputs)
+        if 0 == len(allRunningPods):
+            AOS.create_default_pods()
 
     @staticmethod
     def create_default_pods():
@@ -170,8 +192,5 @@ class AOS(object):
                   oadm  router --credentials=/etc/origin/master/openshift-router.kubeconfig --config=/etc/origin/master/admin.kubeconfig --service-account=default")
 
 if __name__ == "__main__":
-   AOS.generate_default_config()
-   AOS.get_config()
-   AOS.ssh_validation()
    AOS.check_validation()
    AOS.start_origin_openshift()
