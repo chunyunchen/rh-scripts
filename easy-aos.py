@@ -4,6 +4,7 @@ import os, sys, re, time
 import pipes
 from subprocess import check_call,check_output,CalledProcessError,STDOUT
 from ConfigParser import SafeConfigParser
+from argparse import ArgumentParser
 
 
 config = SafeConfigParser()
@@ -15,7 +16,6 @@ class AOS(object):
     osPasswd=""
     masterUser=""
     master=""
-    osProject=""
     masterConfigRoot=""
     masterConfigFile=""
     kubeConfigFile=""
@@ -31,7 +31,10 @@ class AOS(object):
     ESRam=""
     ESClusterSize=1
     EFKDeployer=""
+
     SSHIntoMaster=""
+    osProject=""
+    delProject = False
 
     @staticmethod
     def generate_default_config():
@@ -86,8 +89,6 @@ class AOS(object):
         AOS.ESRam = config.get("image","elastic_ram")
         AOS.ESClusterSize = config.get("image","elastic_cluster_size")
         AOS.EFKDeployer = config.get("image","efk_deployer")
-        AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
-        AOS.osProject = re.match(r'\w+',AOS.osUser).group(0)
 
     @staticmethod
     def echo_command(cmd="Please wait..."):
@@ -117,10 +118,14 @@ class AOS(object):
             notification_items.append("[master].master")
         if not AOS.osUser:
             notification_items.append("[project].os_user")
-        if 0 != len(notification_items):
+
+        if 0 < len(notification_items):
             print "Please set below parameter(s) under %s config file:" % os.path.abspath(AOS.osConfig)
             print '\n'.join(notification_items)
             os.sys.exit()
+
+        AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
+        AOS.osProject = re.match(r'\w+',AOS.osUser).group(0)
         AOS.ssh_validation()
 
     @staticmethod
@@ -159,14 +164,33 @@ class AOS(object):
 
     @staticmethod
     def resource_validate(cmd, reStr, dstNum=3, enableSsh=False):
-        outputs = AOS.run_ssh_command(cmd)
-        resource = re.findall(reStr,outputs)
+        resource = []
         while dstNum != len(resource):
             time.sleep(6)
+            outputs = AOS.run_ssh_command(cmd)
             resource = re.findall(reStr,outputs)
 
     @classmethod
+    def add_project(cls):
+        if AOS.delProject:
+            AOS.run_ssh_command("oc delete project {}".format(AOS.osProject),shell=False)
+            AOS.resource_validate("oc get projects", r".*{}.*".format(AOS.osProject), dstNum=0, shell=False)
+
+        outputs = AOS.run_ssh_command("oc get projects", shell=False)
+        project = re.findall(r".*{}.*".format(AOS.osProject), outputs)
+        if 0 == len(project):
+            AOS.run_ssh_command("oc new-project {}".format(AOS.osProject),shell=False)
+
+        AOS.run_ssh_command("oc project {}".format(AOS.osProject), shell=False)
+
+    @classmethod
+    def login_server(cls):
+        AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.master,AOS.osUser,AOS.osPasswd),shell=False)
+        add_project
+
+    @classmethod
     def start_metrics_stack(cls):
+        AOS.login_server()
         AOS.echo("starting metrics stack...")
         AOS.run_ssh_command("oc create -f %s" % AOS.SAMetricsDeployer, shell=False)
         AOS.do_permission("add-cluster-role-to-user", "cluster-reader", "system:serviceaccount:%s:heapster" % AOS.osProject)
@@ -174,7 +198,7 @@ class AOS(object):
         AOS.run_ssh_command("oc secrets new metrics-deployer nothing=/dev/null",shell=False)
         AOS.run_ssh_command("oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.$SUBDOMAIN,\
         IMAGE_PREFIX=$Image_prefix,IMAGE_VERSION=$Image_version,USE_PERSISTENT_STORAGE=$Use_pv,MASTER_URL=https://$OS_MASTER:8443\
-        |oc create -f -" %s (AOS.hawkularMetricsAppname,))
+        |oc create -f -" %s (AOS.hawkularMetricsAppname,), shell=False)
         resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*Running.*")
 
     @classmethod
@@ -198,6 +222,30 @@ class AOS(object):
         allRunningPods = re.findall(r'docker-registry.*Running.*|router-1.*Running.*', outputs)
         if 0 == len(allRunningPods):
             AOS.create_default_pods()
+            AOS.create_imagestream_into_openshift_project()
+            AOS.pull_metrics_and_logging_images()
+            AOS.clone_metrics_and_logging_gitrepos()
+
+    @staticmethod
+    def clone_metrics_and_logging_gitrepos():
+        AOS.echo("Cloning logging/metrics git repos to %s under $HOME dir for building related images..." % AOS.master)
+        cmd = "git clone https://github.com/openshift/origin-metrics.git; git clone https://github.com/openshift/origin-aggregated-logging.git"
+        AOS.run_ssh_command(cmd)
+
+    @staticmethod
+    def create_imagestream_into_openshift_project():
+        AOS.echo("Creating basic imagestream and metrics/logging templates in *openshift* namespace...")
+        cmd = "oc create -n openshift -f https://raw.githubusercontent.com/openshift/origin/master/examples/image-streams/image-streams-rhel7.json && oc create -n openshift -f https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics.yaml && oc create -n openshift -f https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployment/deployer.yaml"
+        AOS.run_ssh_command(cmd)
+
+    @staticmethod
+    def pull_metrics_and_logging_images():
+        AOS.echo("Pulling down metrics and logging images form DockerHub registry...")
+        imagePrefixs = {"openshift/origin-","registry.access.redhat.com/openshift3/"}
+        images = {"metrics-hawkular-metrics","metrics-heapster","metrics-cassandra","metrics-deployer",\
+                  "logging-kibana","logging-fluentd","logging-elasticsearch","logging-auth-proxy","logging-deployment"}
+        cmd = ';'.join([' '.join(['docker pull',imagePrefix+image]) for imagePrefix in imagePrefixs for image in images])
+        AOS.run_ssh_command(cmd)
 
     @staticmethod
     def create_default_pods():
@@ -205,13 +253,30 @@ class AOS(object):
         AOS.run_ssh_command("oc delete dc --all -n default; oc delete rc --all -n default; oc delete pods --all -n default; oc delete svc --all -n default; oc delete is --all -n openshift")
         # Add permission for creating router
         AOS.run_ssh_command("oadm policy add-scc-to-user privileged system:serviceaccount:default:default")
-        AOS.echo("Starting to create registry and router")
-        AOS.run_ssh_command("export CURL_CA_BUNDLE=/etc/origin/master/ca.crt; \
+        AOS.echo("Starting to create registry and router pods")
+        cmd = "export CURL_CA_BUNDLE=/etc/origin/master/ca.crt; \
                   chmod a+rwX /etc/origin/master/admin.kubeconfig; \
                   chmod +r /etc/origin/master/openshift-registry.kubeconfig; \
                   oadm registry --create --credentials=/etc/origin/master/openshift-registry.kubeconfig --config=/etc/origin/master/admin.kubeconfig; \
-                  oadm  router --credentials=/etc/origin/master/openshift-router.kubeconfig --config=/etc/origin/master/admin.kubeconfig --service-account=default")
+                  oadm  router --credentials=/etc/origin/master/openshift-router.kubeconfig --config=/etc/origin/master/admin.kubeconfig --service-account=default"
+        AOS.run_ssh_command(cmd)
 
 if __name__ == "__main__":
-   AOS.check_validation()
-   AOS.start_origin_openshift()
+    parser = ArgumentParser(description="Setup OpenShift on EC2 or Deploy metrics/logging stack")
+    parser.add_argument("-m", help="OpenShift server DNS,eg: ec2-52-23-180-133.compute-1.amazonaws.com")
+    parser.add_argument("--version", action="version", version="%(prog)s 1.0", help="Display version")
+    subCommands = parser.add_subparsers(title='subcommands',description='valid subcommands')
+
+    # Sub-command for starting OpenShift server
+    startos = subCommands.add_parser('startos')
+    startos.set_defaults(func=AOS.start_origin_openshift)
+
+    # Sub-command for deploying metrics stack
+    metrics = subCommands.add_parser('metrics')
+    metrics.add_argument('-p', help="Specify OpenShift project")
+    metrics.add_argument('-d', action="store_false", help="Delete OpenShift project and Re-create. Default value is False")
+    metrics.set_defaults(func=AOS.start_metrics_stack)
+
+    args = parser.parse_args()
+    AOS.check_validation()
+    args.func()

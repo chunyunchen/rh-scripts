@@ -287,14 +287,12 @@ function create_project {
 function login_openshift {
     local del_proj="$1"
     get_subdomain
-    add_public_url
     oc login $OS_MASTER -u $OS_USER -p $OS_PASSWD
     if [ "$CURLORSSH" != "ssh" ];
     then
         curl $ADMIN_CONFIG_URL -o $RESULT_DIR/$ADMIN_CONFIG 2>&-
         curl $MASTER_CONFIG_URL -o $RESULT_DIR/$MASTER_CONFIG_FILE 2>&-
     fi
-    add_admin_permission
 
     CURRENT_USER_TOKEN=$(get_token_for_current_user)
 
@@ -362,7 +360,6 @@ function up_hch_stack {
     oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=$Hawkular_metrics_appname.$SUBDOMAIN,IMAGE_PREFIX=$Image_prefix,IMAGE_VERSION=$Image_version,USE_PERSISTENT_STORAGE=$Use_pv,MASTER_URL=https://$OS_MASTER:8443 \
     |oc create -f -
     check_resource_validation "starting Metrics stack" "\(heapster\|hawkular\).\+1\/1\s\+Running"
-    remove_admin_permission
 }
 
 ES_ram="1024M"
@@ -416,7 +413,6 @@ API
     fi
     oc scale dc/logging-fluentd --replicas=$fluentd_pod_num
     oc scale rc/logging-fluentd-1 --replicas=$fluentd_pod_num
-    remove_admin_permission
     check_resource_validation "starting EFK stack" "\(logging-es\|logging-fluentd\|logging-kibana\).\+\+Running" "$(($additional_num + $fluentd_pod_num))"
 }
 
@@ -636,6 +632,28 @@ function chain_build {
     oc get build
 }
 
+function push_docker {
+    oc process -f https://raw.githubusercontent.com/openshift-qe/v3-testfiles/master/build/ruby20rhel7-template-sti.json | oc create -f -
+    oc secrets new-dockercfg pushme --docker-username=chunyunchen --docker-password=redhat --docker-email=chunchen@redhat.com
+    oc secrets add serviceaccount/builder secrets/pushme
+    echo "Add below to origin-ruby-sample imagestream section"
+    cat << EOF
+         "spec":{
+         "dockerImageRepository": "docker.io/chunyunchen/origin-ruby-sample"
+       },
+EOF
+    sleep 6
+    oc edit imagestream/origin-ruby-sample -o json
+    echo "Add below to output: section"
+    cat << EOF
+output:
+    pushSecret:
+      name: pushme
+EOF
+    sleep 6
+    oc edit bc/ruby-sample-build 
+}
+
 function main {
 
     set_sudo
@@ -664,11 +682,15 @@ function main {
             ;;
         "hch")
             login_openshift "$del_project"
+            add_public_url
             up_hch_stack
             ;;
         "efk")
             login_openshift "$del_project"
+            add_public_url
+            add_admin_permission
             up_efk_stack
+            remove_admin_permission
             ;;
         "chk")
             login_openshift
@@ -686,7 +708,10 @@ function main {
             scale $*
             ;;
         "startall")
+            add_public_url
+            add_admin_permission
             start_hch_and_efk "$del_project"
+            remove_admin_permission
             ;;
         "camel")
             create_camel_apps
@@ -699,6 +724,10 @@ function main {
             ;;
         "chainbuild")
             chain_build
+            ;;
+        "push")
+            login_openshift "$del_project"
+            push_docker
             ;;
         *) usage
             ;;
