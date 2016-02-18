@@ -165,7 +165,7 @@ class AOS(object):
             user = AOS.osUser
         enableSSH = False
         pre_cmd = "oc policy"
-        if re.match(r"(cluster|scc-)",role_type):
+        if re.match(r".*(cluster|scc-).*",role_type):
             enableSSH = True
             pre_cmd = "oadm policy"
         if "add-" in role_type:
@@ -210,16 +210,23 @@ class AOS(object):
     def get_subdomain(cls):
         masterConfig = os.path.join(AOS.masterConfigRoot, AOS.masterConfigFile)
         outputs = AOS.run_ssh_command("grep subdomain {}".format(masterConfig))
-        subdomain = outputs.split()[1]
+        subdomain = outputs.split('"')[1]
         return subdomain
+
+    @classmethod
+    def delete_oauth(cls):
+        oauth = re.findall(r"kibana-proxy", AOS.run_ssh_command("oc get oauthclients -n openshift-infra"))
+        if 0 < len(oauth):
+            AOS.run_ssh_ssh("oc delete oauthclients kibana-proxy -n openshift-infra")
+            resource_validate("oc get oauthclients -n openshift-infra",r"kibana-proxy",dstNum=0)
 
     @classmethod
     def start_metrics_stack(cls):
         AOS.login_server()
         AOS.echo("starting metrics stack...")
         AOS.run_ssh_command("oc create -f %s" % AOS.SAMetricsDeployer, ssh=False)
-        AOS.do_permission("add-cluster-role-to-user", "cluster-reader", "system:serviceaccount:%s:heapster" % AOS.osProject)
-        AOS.do_permission("add-role-to-user","edit", "system:serviceaccount:%s:metrics-deployer" % AOS.osProject)
+        AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:heapster" % AOS.osProject)
+        AOS.do_permission("add-role-to-user","edit", user="system:serviceaccount:%s:metrics-deployer" % AOS.osProject)
         AOS.run_ssh_command("oc secrets new metrics-deployer nothing=/dev/null",ssh=False)
         AOS.run_ssh_command("oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.$SUBDOMAIN,\
         IMAGE_PREFIX=$Image_prefix,IMAGE_VERSION=$Image_version,USE_PERSISTENT_STORAGE=$Use_pv,MASTER_URL=https://$OS_MASTER:8443\
@@ -234,11 +241,10 @@ class AOS(object):
         AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -',\
                             ssh=False)
         AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
-        AOS.run_ssh("oc delete oauthclients kibana-proxy -n openshift-infra")
-        resource_validate("oc get oauthclients -n openshift-infra",r"kibana-proxy",dstNum=0)
-        AOS.do_permission("add-role-to-user","edit","system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
-        AOS.do_permission("add-cluster-role-to-user","cluster-reader","system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
-        AOS.do_permission("add-scc-to-user","privileged","system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+        AOS.delete_oauth()
+        AOS.do_permission("add-role-to-user","edit",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
+        AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+        AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
         subdomain = AOS.get_subdomain()
         cmd = "oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=false,\
                                                                   IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},\
