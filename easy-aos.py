@@ -170,11 +170,11 @@ class AOS(object):
             pre_cmd = "oadm policy"
         if "add-" in role_type:
             if "cluster" in role_type:
-                AOS.echo("Note: *%s* user has '%s' admin role! Be Careful!!!" % (AOS.osUser,role_name))
+                AOS.echo("Note: *%s* user has '%s' admin role! Be Careful!!!" % (user,role_name))
             else:
-                AOS.echo("Added '%s' role to *%s* user!" % (role_name,AOS.osUser))
+                AOS.echo("Added '%s' role to *%s* user!" % (role_name,user))
         elif "remove-" in role_type:
-            AOS.echo("Removed '%s' role from *%s* user." % (role_name,AOS.osUser))
+            AOS.echo("Removed '%s' role from *%s* user." % (role_name,user))
         command = "%s %s %s %s" % (pre_cmd,role_type,role_name,user)
         AOS.run_ssh_command(command,ssh=enableSSH)
 
@@ -246,15 +246,8 @@ class AOS(object):
         AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
         AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
         subdomain = AOS.get_subdomain()
-        cmd = "oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=false,\
-                                                                  IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},\
-                                                                  KIBANA_OPS_HOSTNAME={opsName}.{subdomain},\
-                                                                  PUBLIC_MASTER_URL=https://{master}:8443,\
-                                                                  ES_INSTANCE_RAM={ram},\
-                                                                  ES_CLUSTER_SIZE={size},\
-                                                                  IMAGE_VERSION={version},\
-                                                                  MASTER_URL=https://{master}:8443\
-                                                                  |oc create -f -".format(prefix=AOS.imagePrefix,kName=AOS.kibanaAppname,\
+        cmd = "oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=false,IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},KIBANA_OPS_HOSTNAME={opsName}.{subdomain},PUBLIC_MASTER_URL=https://{master}:8443,ES_INSTANCE_RAM={ram},ES_CLUSTER_SIZE={size},IMAGE_VERSION={version},MASTER_URL=https://{master}:8443|oc create -f -"\
+                                                                                         .format(prefix=AOS.imagePrefix,kName=AOS.kibanaAppname,\
                                                                                           subdomain=subdomain,opsName=AOS.kibanaOpsAppname,
                                                                                           master=AOS.master,ram=AOS.ESRam,\
                                                                                           size=AOS.ESClusterSize,version=AOS.imageVersion)
