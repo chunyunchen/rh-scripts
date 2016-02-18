@@ -652,6 +652,7 @@ output:
 EOF
     sleep 6
     oc edit bc/ruby-sample-build 
+    oc start-build ruby-sample-build
 }
 
 function main {
@@ -726,7 +727,7 @@ function main {
             chain_build
             ;;
         "push")
-            login_openshift "$del_project"
+#            login_openshift "$del_project"
             push_docker
             ;;
         *) usage

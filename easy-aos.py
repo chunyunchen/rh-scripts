@@ -68,7 +68,7 @@ class AOS(object):
                config.write(defaultconfig)
 
     @staticmethod
-    def get_config():
+    def get_config(args):
         config.read(AOS.osConfig)
         AOS.osUser = config.get("project","os_user")
         AOS.osPasswd = config.get("project","os_passwd")
@@ -84,11 +84,25 @@ class AOS(object):
         AOS.SAMetricsDeployer = config.get("image","serviceaccount_metrics_deployer")
         AOS.HCHStack = config.get("image","hch_stack")
         AOS.imagePrefix = config.get("image","image_prefix")
-        AOS.mageVersion = config.get("image","image_version")
+        AOS.imageVersion = config.get("image","image_version")
         AOS.enablePV = config.getboolean("image","enable_pv")
         AOS.ESRam = config.get("image","elastic_ram")
         AOS.ESClusterSize = config.get("image","elastic_cluster_size")
         AOS.EFKDeployer = config.get("image","efk_deployer")
+
+        if args.m:
+            AOS.master = args.m
+        if args.p:
+            AOS.osProject = args.p
+        if args.d:
+            AOS.delProject = args.d
+
+    @staticmethod
+    def echo_user_info():
+        AOS.echo("User info:")
+        print "master: {}".format(AOS.master)
+        print "user: {}".format(AOS.osUser)
+        print "project: {}".format(AOS.osProject)
 
     @staticmethod
     def echo_command(cmd="Please wait..."):
@@ -109,10 +123,10 @@ class AOS(object):
             os.sys.exit()
 
     @classmethod
-    def check_validation(cls,):
+    def check_validation(cls,args):
         AOS.echo("Checking confiures...")
         AOS.generate_default_config()
-        AOS.get_config()
+        AOS.get_config(args)
         notification_items = []
         if not AOS.master:
             notification_items.append("[master].master")
@@ -127,6 +141,7 @@ class AOS(object):
         AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
         AOS.osProject = re.match(r'\w+',AOS.osUser).group(0)
         AOS.ssh_validation()
+        AOS.echo_user_info()
 
     @staticmethod
     def run_ssh_command(cmd, asShell=True,ssh=True):
@@ -138,6 +153,7 @@ class AOS(object):
             return outputs
         except (CalledProcessError,OSError),e:
             if "no process found" not in e.output:
+                AOS.echo_command(remote_command)
                 AOS.echo(e.output)
                 print "Aborted!!!"
                 os.sys.exit()
@@ -149,7 +165,7 @@ class AOS(object):
             user = AOS.osUser
         enableSSH = False
         pre_cmd = "oc policy"
-        if "cluster" in role_type:
+        if re.match(r"(cluster|scc-)",role_type):
             enableSSH = True
             pre_cmd = "oadm policy"
         if "add-" in role_type:
@@ -164,42 +180,82 @@ class AOS(object):
 
     @staticmethod
     def resource_validate(cmd, reStr, dstNum=3, enableSsh=False):
-        resource = []
-        while dstNum != len(resource):
+        AOS.echo("Wait operation to finished...")
+        while dstNum != len(re.findall(reStr,AOS.run_ssh_command(cmd))):
             time.sleep(6)
-            outputs = AOS.run_ssh_command(cmd)
-            resource = re.findall(reStr,outputs)
 
     @classmethod
     def add_project(cls):
         if AOS.delProject:
-            AOS.run_ssh_command("oc delete project {}".format(AOS.osProject),shell=False)
-            AOS.resource_validate("oc get projects", r".*{}.*".format(AOS.osProject), dstNum=0, shell=False)
+            AOS.echo("Deleting project *{}*".format(AOS.osProject))
+            project = re.findall(AOS.osProject,AOS.run_ssh_command("oc get project",ssh=False))
+            if 0 < len(project):
+                AOS.run_ssh_command("oc delete project {}".format(AOS.osProject),ssh=False)
+                AOS.resource_validate("oc get projects", r".*{}.*".format(AOS.osProject), dstNum=0)
 
-        outputs = AOS.run_ssh_command("oc get projects", shell=False)
+        outputs = AOS.run_ssh_command("oc get projects", ssh=False)
         project = re.findall(r".*{}.*".format(AOS.osProject), outputs)
         if 0 == len(project):
-            AOS.run_ssh_command("oc new-project {}".format(AOS.osProject),shell=False)
+            AOS.echo("Creating project *{}*".format(AOS.osProject))
+            AOS.run_ssh_command("oc new-project {}".format(AOS.osProject),ssh=False)
 
-        AOS.run_ssh_command("oc project {}".format(AOS.osProject), shell=False)
+        AOS.run_ssh_command("oc project {}".format(AOS.osProject), ssh=False)
 
     @classmethod
     def login_server(cls):
-        AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.master,AOS.osUser,AOS.osPasswd),shell=False)
-        add_project
+        AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.master,AOS.osUser,AOS.osPasswd),ssh=False)
+        AOS.add_project()
+
+    @classmethod
+    def get_subdomain(cls):
+        masterConfig = os.path.join(AOS.masterConfigRoot, AOS.masterConfigFile)
+        outputs = AOS.run_ssh_command("grep subdomain {}".format(masterConfig))
+        subdomain = outputs.split()[1]
+        return subdomain
 
     @classmethod
     def start_metrics_stack(cls):
         AOS.login_server()
         AOS.echo("starting metrics stack...")
-        AOS.run_ssh_command("oc create -f %s" % AOS.SAMetricsDeployer, shell=False)
+        AOS.run_ssh_command("oc create -f %s" % AOS.SAMetricsDeployer, ssh=False)
         AOS.do_permission("add-cluster-role-to-user", "cluster-reader", "system:serviceaccount:%s:heapster" % AOS.osProject)
         AOS.do_permission("add-role-to-user","edit", "system:serviceaccount:%s:metrics-deployer" % AOS.osProject)
-        AOS.run_ssh_command("oc secrets new metrics-deployer nothing=/dev/null",shell=False)
+        AOS.run_ssh_command("oc secrets new metrics-deployer nothing=/dev/null",ssh=False)
         AOS.run_ssh_command("oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.$SUBDOMAIN,\
         IMAGE_PREFIX=$Image_prefix,IMAGE_VERSION=$Image_version,USE_PERSISTENT_STORAGE=$Use_pv,MASTER_URL=https://$OS_MASTER:8443\
-        |oc create -f -" %s (AOS.hawkularMetricsAppname,), shell=False)
+        |oc create -f -" %s (AOS.hawkularMetricsAppname,), ssh=False)
         resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*Running.*")
+
+    @classmethod
+    def start_logging_stack(cls):
+        AOS.login_server()
+        AOS.echo("Start deploying logging stack pods...")
+        AOS.run_ssh_command("oc secrets new logging-deployer nothing=/dev/null",ssh=False)
+        AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -',\
+                            ssh=False)
+        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
+        AOS.run_ssh("oc delete oauthclients kibana-proxy -n openshift-infra")
+        resource_validate("oc get oauthclients -n openshift-infra",r"kibana-proxy",dstNum=0)
+        AOS.do_permission("add-role-to-user","edit","system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
+        AOS.do_permission("add-cluster-role-to-user","cluster-reader","system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+        AOS.do_permission("add-scc-to-user","privileged","system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+        subdomain = AOS.get_subdomain()
+        cmd = "oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=false,\
+                                                                  IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},\
+                                                                  KIBANA_OPS_HOSTNAME={opsName}.{subdomain},\
+                                                                  PUBLIC_MASTER_URL=https://{master}:8443,\
+                                                                  ES_INSTANCE_RAM={ram},\
+                                                                  ES_CLUSTER_SIZE={size},\
+                                                                  IMAGE_VERSION={version},\
+                                                                  MASTER_URL=https://{master}:8443\
+                                                                  |oc create -f -".format(prefix=AOS.imagePrefix,kName=AOS.kibanaAppname,\
+                                                                                          subdomain=subdomain,opsName=AOS.kibanaOpsAppname,
+                                                                                          master=AOS.master,ram=AOS.ESRam,\
+                                                                                          size=AOS.ESClusterSize,version=AOS.imageVersion)
+        AOS.run_ssh_command(cmd,ssh=False)
+        AOS.resource_validate("oc get projects", r"logging-deployer.+Completed", dstNum=1)
+        AOS.run_ssh_command("oc process logging-support-template | oc create -f -", ssh=False)
+        AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
 
     @classmethod
     def start_origin_openshift(cls):
@@ -212,8 +268,7 @@ class AOS(object):
         AOS.run_ssh_command("sed -i -e '/loggingPublicURL:/d' -e '/metricsPublicURL:/d' %s" % masterConfig)
         AOS.run_ssh_command("killall openshift")
         AOS.run_ssh_command("echo export KUBECONFIG=%s >> ~/.bashrc; nohup openshift start --node-config=%s --master-config=%s &> openshift.log &" % (kubeConfig,nodeConfig,masterConfig))
-        AOS.echo("Wait 23 seconds for upping OpenShift...")
-        time.sleep(23)
+        AOS.resource_validate("oc get projects", r".+")
 
         # For automation cases related admin role
         master = AOS.master.replace('.','-')
@@ -262,21 +317,30 @@ class AOS(object):
         AOS.run_ssh_command(cmd)
 
 if __name__ == "__main__":
-    parser = ArgumentParser(description="Setup OpenShift on EC2 or Deploy metrics/logging stack")
-    parser.add_argument("-m", help="OpenShift server DNS,eg: ec2-52-23-180-133.compute-1.amazonaws.com")
-    parser.add_argument("--version", action="version", version="%(prog)s 1.0", help="Display version")
-    subCommands = parser.add_subparsers(title='subcommands',description='valid subcommands')
+    commonArgs = ArgumentParser(add_help=False)
+    commonArgs.add_argument("-m", help="OpenShift server DNS,eg: ec2-52-23-180-133.compute-1.amazonaws.com")
+    commonArgs.add_argument("--version", action="version", version="%(prog)s 1.0", help="Display version")
+
+    subCommonArgs = ArgumentParser(add_help=False)
+    subCommonArgs.add_argument('-p', help="Specify OpenShift project")
+    subCommonArgs.add_argument('-d', action="store_true", help="Delete OpenShift project and Re-create. Default value is False")
+
+    commands = ArgumentParser(parents=[commonArgs],description="Setup OpenShift on EC2 or Deploy metrics/logging stack")
+    subCommands = commands.add_subparsers(title='subcommands:')
 
     # Sub-command for starting OpenShift server
-    startos = subCommands.add_parser('startos')
+    startos = subCommands.add_parser('startos', parents=[commonArgs], description="Start OpenShift server", help="start OpenShift service")
     startos.set_defaults(func=AOS.start_origin_openshift)
 
     # Sub-command for deploying metrics stack
-    metrics = subCommands.add_parser('metrics')
-    metrics.add_argument('-p', help="Specify OpenShift project")
-    metrics.add_argument('-d', action="store_false", help="Delete OpenShift project and Re-create. Default value is False")
+    metrics = subCommands.add_parser('metrics',parents=[commonArgs,subCommonArgs], description="Deploy metrics stack pods", help="Deploy metrics stack pods")
     metrics.set_defaults(func=AOS.start_metrics_stack)
 
-    args = parser.parse_args()
-    AOS.check_validation()
+    # Sub-command for deploying logging stack
+    logging = subCommands.add_parser('logging', parents=[commonArgs,subCommonArgs], description="Deploy logging stack pods", help="Deploy logging stack pods")
+    logging.required = False
+    logging.set_defaults(func=AOS.start_logging_stack)
+
+    args = commands.parse_args()
+    AOS.check_validation(args)
     args.func()
