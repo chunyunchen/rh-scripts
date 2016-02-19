@@ -4,7 +4,7 @@ import os, sys, re, time
 import pipes
 from subprocess import check_call,check_output,CalledProcessError,STDOUT
 from ConfigParser import SafeConfigParser
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 
 
 config = SafeConfigParser()
@@ -51,7 +51,7 @@ class AOS(object):
         config.set('master','master_config_root','/etc/origin/master')
         config.set('master','master_config_file','master-config.yaml')
         config.set('master','kube_config_file','admin.kubeconfig')
-        config.set('ssh','pem_file','~/cfile/libra-new.pem')
+        config.set('ssh','pem_file','')
         config.set('image','hawkular_metrics_appname','hawkular-metrics')
         config.set('image','kibana_ops_appname','kibana-ops')
         config.set('image','kibana_appname','kibana')
@@ -90,12 +90,15 @@ class AOS(object):
         AOS.ESClusterSize = config.get("image","elastic_cluster_size")
         AOS.EFKDeployer = config.get("image","efk_deployer")
 
-        if args.m:
-            AOS.master = args.m
-        if args.p:
-            AOS.osProject = args.p
-        if args.d:
-            AOS.delProject = args.d
+        try:
+            if args.m:
+                AOS.master = args.m
+            if args.p:
+                AOS.osProject = args.p
+            if args.d:
+                AOS.delProject = args.d
+        except AttributeError:
+            pass
 
     @staticmethod
     def echo_user_info():
@@ -106,11 +109,11 @@ class AOS(object):
 
     @staticmethod
     def echo_command(cmd="Please wait..."):
-        print "[Running Command]:",cmd
+        print "[Running Command]: {}\n".format(cmd)
 
     @staticmethod
     def echo(msg):
-        print "[>>>>>>]:", msg
+        print "[>>>>>>>>>>>>>>>>>>>>>]: {}".format(msg)
 
     @staticmethod
     def ssh_validation():
@@ -132,6 +135,8 @@ class AOS(object):
             notification_items.append("[master].master")
         if not AOS.osUser:
             notification_items.append("[project].os_user")
+        if not AOS.pemFile:
+            notification_items.append("[ssh].pem_file")
 
         if 0 < len(notification_items):
             print "Please set below parameter(s) under %s config file:" % os.path.abspath(AOS.osConfig)
@@ -148,6 +153,7 @@ class AOS(object):
         remote_command = cmd
         if ssh:
             remote_command = '%s {}'.format(pipes.quote(cmd)) % AOS.SSHIntoMaster
+        AOS.echo_command(remote_command)
         try:
             outputs = check_output(remote_command, shell=asShell, stderr=STDOUT)
             return outputs
@@ -181,8 +187,17 @@ class AOS(object):
     @staticmethod
     def resource_validate(cmd, reStr, dstNum=3, enableSsh=False):
         AOS.echo("Wait operation to finished...")
-        while dstNum != len(re.findall(reStr,AOS.run_ssh_command(cmd))):
-            time.sleep(6)
+
+        iloop = 50
+        interval = 6
+        timeout = iloop * interval
+        while dstNum != len(re.findall(reStr,AOS.run_ssh_command(cmd))) and 0 < iloop:
+            time.sleep(interval)
+            iloop -= 1
+
+        if iloop == 0:
+            AOS.echo("Operation is not finished, timeout {} seconds".format(timeout))
+            os.sys.exit()
 
     @classmethod
     def add_project(cls):
@@ -267,7 +282,7 @@ class AOS(object):
         AOS.run_ssh_command("sed -i -e '/loggingPublicURL:/d' -e '/metricsPublicURL:/d' %s" % masterConfig)
         AOS.run_ssh_command("killall openshift")
         AOS.run_ssh_command("echo export KUBECONFIG=%s >> ~/.bashrc; nohup openshift start --node-config=%s --master-config=%s &> openshift.log &" % (kubeConfig,nodeConfig,masterConfig))
-        AOS.resource_validate("oc get projects", r".+")
+        AOS.resource_validate("oc get projects", r"Active")
 
         # For automation cases related admin role
         master = AOS.master.replace('.','-')
@@ -279,6 +294,7 @@ class AOS(object):
             AOS.create_imagestream_into_openshift_project()
             AOS.pull_metrics_and_logging_images()
             AOS.clone_metrics_and_logging_gitrepos()
+        AOS.echo("Success! OpenShift Server is UP. ^_^")
 
     @staticmethod
     def clone_metrics_and_logging_gitrepos():

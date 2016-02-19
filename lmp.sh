@@ -391,6 +391,7 @@ API
     then
         kibana_ops_hostname="KIBANA_OPS_HOSTNAME=$Kibana_ops_appname.$SUBDOMAIN"
     fi
+    echo "oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=$TORF,IMAGE_PREFIX=$Image_prefix,KIBANA_HOSTNAME=$Kibana_appname.$SUBDOMAIN,$kibana_ops_hostname,PUBLIC_MASTER_URL=https://$OS_MASTER:8443,ES_INSTANCE_RAM=$ES_ram,ES_CLUSTER_SIZE=$ES_cluster_size,IMAGE_VERSION=$Image_version,MASTER_URL=https://$OS_MASTER:8443 |oc create -f -"
     oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=$TORF,IMAGE_PREFIX=$Image_prefix,KIBANA_HOSTNAME=$Kibana_appname.$SUBDOMAIN,$kibana_ops_hostname,PUBLIC_MASTER_URL=https://$OS_MASTER:8443,ES_INSTANCE_RAM=$ES_ram,ES_CLUSTER_SIZE=$ES_cluster_size,IMAGE_VERSION=$Image_version,MASTER_URL=https://$OS_MASTER:8443 |oc create -f -
     check_resource_validation "completing EFK deployer" "\logging-deployer.\+0\/1\s\+Completed" "1"
     # Create the supporting definitions
@@ -683,12 +684,12 @@ function main {
             ;;
         "hch")
             login_openshift "$del_project"
-            add_public_url
+#            add_public_url
             up_hch_stack
             ;;
         "efk")
             login_openshift "$del_project"
-            add_public_url
+#            add_public_url
             add_admin_permission
             up_efk_stack
             remove_admin_permission
