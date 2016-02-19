@@ -1,0 +1,11 @@
+1. how to deal with global option and sub-command option ?
+A: create a argparse.ArgumentParser object for store global option, another ofr sub-command's.
+
+2. how to catch the errors when executing subprocess.check_output() ?
+A: give stderr=subprocess.STDOUT parameter to check_output func.
+
+3. how to parse config file with [section] format ?
+A: use SafeCofnigParser module
+
+4. how to execute remote ssh command ?
+A: add quote to remote command string with pipes.quote() against subprocess.check_output()

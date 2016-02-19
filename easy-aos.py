@@ -331,31 +331,45 @@ class AOS(object):
                   oadm  router --credentials=/etc/origin/master/openshift-router.kubeconfig --config=/etc/origin/master/admin.kubeconfig --service-account=default"
         AOS.run_ssh_command(cmd)
 
+    @classmethod
+    def args_handler(cls):
+        # Global options
+        commonArgs = ArgumentParser(add_help=False)
+        commonArgs.add_argument("-m", help="OpenShift server DNS,eg: ec2-52-23-180-133.compute-1.amazonaws.com")
+        commonArgs.add_argument("--version", action="version", version="%(prog)s 1.0", help="Display version")
+    
+        # Options for sub-command
+        subCommonArgs = ArgumentParser(add_help=False)
+        subCommonArgs.add_argument('-p', help="Specify OpenShift project")
+        subCommonArgs.add_argument('-d', action="store_true",\
+                                         help="Delete OpenShift project and Re-create. Default value is False")
+    
+        commands = ArgumentParser(parents=[commonArgs],description="Setup OpenShift on EC2 or Deploy metrics/logging stack")
+        subCommands = commands.add_subparsers(title='subcommands:')
+    
+        # Sub-command for starting OpenShift server
+        startos = subCommands.add_parser('startos', parents=[commonArgs],\
+                                                    description="Start OpenShift server",\
+                                                    help="start OpenShift service")
+        startos.set_defaults(subcommand=AOS.start_origin_openshift)
+    
+        # Sub-command for deploying metrics stack
+        metrics = subCommands.add_parser('metrics',parents=[commonArgs,subCommonArgs],\
+                                                   description="Deploy metrics stack pods",\
+                                                   help="Deploy metrics stack pods")
+        metrics.set_defaults(subcommand=AOS.start_metrics_stack)
+    
+        # Sub-command for deploying logging stack
+        logging = subCommands.add_parser('logging', parents=[commonArgs,subCommonArgs],\
+                                                    description="Deploy logging stack pods",\
+                                                    help="Deploy logging stack pods")
+        logging.set_defaults(subcommand=AOS.start_logging_stack)
+    
+        args = commands.parse_args()
+        AOS.check_validation(args)
+     
+        return args
+
 if __name__ == "__main__":
-    commonArgs = ArgumentParser(add_help=False)
-    commonArgs.add_argument("-m", help="OpenShift server DNS,eg: ec2-52-23-180-133.compute-1.amazonaws.com")
-    commonArgs.add_argument("--version", action="version", version="%(prog)s 1.0", help="Display version")
-
-    subCommonArgs = ArgumentParser(add_help=False)
-    subCommonArgs.add_argument('-p', help="Specify OpenShift project")
-    subCommonArgs.add_argument('-d', action="store_true", help="Delete OpenShift project and Re-create. Default value is False")
-
-    commands = ArgumentParser(parents=[commonArgs],description="Setup OpenShift on EC2 or Deploy metrics/logging stack")
-    subCommands = commands.add_subparsers(title='subcommands:')
-
-    # Sub-command for starting OpenShift server
-    startos = subCommands.add_parser('startos', parents=[commonArgs], description="Start OpenShift server", help="start OpenShift service")
-    startos.set_defaults(func=AOS.start_origin_openshift)
-
-    # Sub-command for deploying metrics stack
-    metrics = subCommands.add_parser('metrics',parents=[commonArgs,subCommonArgs], description="Deploy metrics stack pods", help="Deploy metrics stack pods")
-    metrics.set_defaults(func=AOS.start_metrics_stack)
-
-    # Sub-command for deploying logging stack
-    logging = subCommands.add_parser('logging', parents=[commonArgs,subCommonArgs], description="Deploy logging stack pods", help="Deploy logging stack pods")
-    logging.required = False
-    logging.set_defaults(func=AOS.start_logging_stack)
-
-    args = commands.parse_args()
-    AOS.check_validation(args)
-    args.func()
+    args = AOS.args_handler() 
+    args.subcommand()
