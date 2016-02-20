@@ -151,9 +151,12 @@ class AOS(object):
     @staticmethod
     def run_ssh_command(cmd, asShell=True,ssh=True):
         remote_command = cmd
+
         if ssh:
             remote_command = '%s {}'.format(pipes.quote(cmd)) % AOS.SSHIntoMaster
+
         AOS.echo_command(remote_command)
+
         try:
             outputs = check_output(remote_command, shell=asShell, stderr=STDOUT)
             return outputs
@@ -216,8 +219,19 @@ class AOS(object):
 
         AOS.run_ssh_command("oc project {}".format(AOS.osProject), ssh=False)
 
+    @staticmethod
+    def loginedOnce():
+        outputs = AOS.run_ssh_command("oc config current-context", ssh=False)
+        loginCMD = "oc login {0} -u {1} -p {2}".format(AOS.master, AOS.osUser, AOS.osPasswd)
+        if AOS.master.replace('.','-') not in outputs:
+            print "[ IMPORTANT ] Need login this master once by manual! [ IMPORTANT ]"
+            print "Please run below login command line:"
+            print loginCMD
+            os.sys.exit()
+
     @classmethod
     def login_server(cls):
+        AOS.loginedOnce()
         AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.master,AOS.osUser,AOS.osPasswd),ssh=False)
         AOS.add_project()
 
