@@ -189,12 +189,12 @@ class AOS(object):
 
     @staticmethod
     def resource_validate(cmd, reStr, dstNum=3, enableSsh=False):
-        AOS.echo("Wait operation to finished...")
+        AOS.echo("Wait above operation to finished...")
 
         iloop = 50
         interval = 6
         timeout = iloop * interval
-        while dstNum != len(re.findall(reStr,AOS.run_ssh_command(cmd))) and 0 < iloop:
+        while dstNum != len(re.findall(reStr,AOS.run_ssh_command(cmd,ssh=enableSsh))) and 0 < iloop:
             time.sleep(interval)
             iloop -= 1
 
@@ -246,8 +246,14 @@ class AOS(object):
     def delete_oauth(cls):
         oauth = re.findall(r"kibana-proxy", AOS.run_ssh_command("oc get oauthclients -n openshift-infra"))
         if 0 < len(oauth):
-            AOS.run_ssh_ssh("oc delete oauthclients kibana-proxy -n openshift-infra")
-            resource_validate("oc get oauthclients -n openshift-infra",r"kibana-proxy",dstNum=0)
+            AOS.run_ssh_command("oc delete oauthclients kibana-proxy -n openshift-infra")
+            AOS.resource_validate("oc get oauthclients -n openshift-infra",r"kibana-proxy",dstNum=0)
+
+    @classmethod
+    def set_annotation(cls, imageStreams):
+        isList = [x.split()[0] for x in imageStreams.split('\n')]
+        for osIS in isList:
+            AOS.run_ssh_command('oc patch imagestreams {}  -p {}'.format(osIS, pipes.quote({"metadata":{"annotations":{"openshift.io/image.insecureRepository":"true"}}})), ssh=False)
 
     @classmethod
     def start_metrics_stack(cls):
@@ -260,7 +266,7 @@ class AOS(object):
         AOS.run_ssh_command("oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.$SUBDOMAIN,\
         IMAGE_PREFIX=$Image_prefix,IMAGE_VERSION=$Image_version,USE_PERSISTENT_STORAGE=$Use_pv,MASTER_URL=https://$OS_MASTER:8443\
         |oc create -f -" %s (AOS.hawkularMetricsAppname,), ssh=False)
-        resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*Running.*")
+        AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*Running.*")
 
     @classmethod
     def start_logging_stack(cls):
@@ -281,8 +287,10 @@ class AOS(object):
                                                                                           master=AOS.master,ram=AOS.ESRam,\
                                                                                           size=AOS.ESClusterSize,version=AOS.imageVersion)
         AOS.run_ssh_command(cmd,ssh=False)
-        AOS.resource_validate("oc get projects", r"logging-deployer.+Completed", dstNum=1)
+        AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-deployer.+Completed", dstNum=1)
         AOS.run_ssh_command("oc process logging-support-template | oc create -f -", ssh=False)
+        imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
+        AOS.set_annotation(imageStreams)
         AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
 
     @classmethod
