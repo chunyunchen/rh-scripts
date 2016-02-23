@@ -630,9 +630,9 @@ function chain_build {
     check_resource_validation "first s2i build to completed" "frontend-sti-1.\+Running" "2"
     oc start-build python-sample-build-sti
     check_resource_validation "second s2i build to completed" "python-sample-build-sti.\+Completed" "2"
-    echo "ImamgeStream updated:"
+    echo -e "${blue_prefix}ImamgeStream updated:${color_suffix}"
     oc get is | grep sample-sti
-    echo "Builds:"
+    echo -e "${blue_prefix}Builds:${color_suffix}"
     oc get build
 }
 
@@ -739,6 +739,9 @@ function main {
         "push")
 #            login_openshift "$del_project"
             push_docker
+            ;;
+        "docker")
+            echo "--confirm-def-push=false"
             ;;
         *) usage
             ;;
