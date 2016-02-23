@@ -1,5 +1,6 @@
 #!/bin/env python
 
+from __future__ import print_function
 import os, sys, re, time
 import pipes
 from subprocess import check_call,check_output,CalledProcessError,STDOUT
@@ -103,18 +104,18 @@ class AOS(object):
     @staticmethod
     def echo_user_info():
         AOS.echo("User info:")
-        print "master: {}".format(AOS.master)
-        print "user: {}".format(AOS.osUser)
-        print "project: {}".format(AOS.osProject)
+        print("master: {}".format(AOS.master))
+        print("user: {}".format(AOS.osUser))
+        print("project: {}".format(AOS.osProject))
 
     @staticmethod
     def echo_command(cmd="Please wait..."):
-        print "[Running Command]: {}\n".format(cmd)
+        print("[Running Command]: {}\n".format(cmd))
 
     @staticmethod
     def echo(msg):
         prefix_str = '>' * len('Running Command')
-        print "[{}]: {}".format(prefix_str, msg)
+        print("[{}]: {}".format(prefix_str, msg))
 
     @staticmethod
     def ssh_validation():
@@ -140,8 +141,8 @@ class AOS(object):
             notification_items.append("[ssh].pem_file")
 
         if 0 < len(notification_items):
-            print "Please set below parameter(s) under %s config file:" % os.path.abspath(AOS.osConfig)
-            print '\n'.join(notification_items)
+            print("Please set below parameter(s) under %s config file:" % os.path.abspath(AOS.osConfig))
+            print('\n'.join(notification_items))
             os.sys.exit()
 
         AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
@@ -165,7 +166,7 @@ class AOS(object):
             if "no process found" not in e.output:
                 AOS.echo_command(remote_command)
                 AOS.echo(e.output)
-                print "Aborted!!!"
+                print("Aborted!!!")
                 os.sys.exit()
 
     @classmethod
@@ -225,9 +226,9 @@ class AOS(object):
         outputs = AOS.run_ssh_command("oc config current-context", ssh=False)
         loginCMD = "oc login {0} -u {1} -p {2}".format(AOS.master, AOS.osUser, AOS.osPasswd)
         if AOS.master.replace('.','-') not in outputs:
-            print "[ IMPORTANT ] Need login this master once by manual! [ IMPORTANT ]"
-            print "Please run below login command line:"
-            print loginCMD
+            print("[ IMPORTANT ] Need login this master once by manual! [ IMPORTANT ]")
+            print("Please run below login command line:")
+            print(loginCMD)
             os.sys.exit()
 
     @classmethod
@@ -252,10 +253,9 @@ class AOS(object):
 
     @classmethod
     def set_annotation(cls, imageStreams):
-        #isList = [x.split()[0] for x in imageStreams.split('\n')]
-        print imageStreams.split('\n')
+        isList = [x.split()[0] for x in imageStreams.strip().split('\n')]
         for osIS in isList:
-            AOS.run_ssh_command('oc patch imagestreams {}  -p {}'.format(osIS, pipes.quote({"metadata":{"annotations":{"openshift.io/image.insecureRepository":"true"}}})), ssh=False)
+            AOS.run_ssh_command('oc patch imagestreams {}  -p {}'.format(osIS, pipes.quote('{"metadata":{"annotations":{"openshift.io/image.insecureRepository":"true"}}}')), ssh=False)
 
     @classmethod
     def start_metrics_stack(cls):
