@@ -113,7 +113,8 @@ class AOS(object):
 
     @staticmethod
     def echo(msg):
-        print "[>>>>>>>>>>>>>>>>>>>>>]: {}".format(msg)
+        prefix_str = '>' * len('Running Command')
+        print "[{}]: {}".format(prefix_str, msg)
 
     @staticmethod
     def ssh_validation():
@@ -251,7 +252,8 @@ class AOS(object):
 
     @classmethod
     def set_annotation(cls, imageStreams):
-        isList = [x.split()[0] for x in imageStreams.split('\n')]
+        #isList = [x.split()[0] for x in imageStreams.split('\n')]
+        print imageStreams.split('\n')
         for osIS in isList:
             AOS.run_ssh_command('oc patch imagestreams {}  -p {}'.format(osIS, pipes.quote({"metadata":{"annotations":{"openshift.io/image.insecureRepository":"true"}}})), ssh=False)
 
@@ -288,7 +290,7 @@ class AOS(object):
                                                                                           size=AOS.ESClusterSize,version=AOS.imageVersion)
         AOS.run_ssh_command(cmd,ssh=False)
         AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-deployer.+Completed", dstNum=1)
-        AOS.run_ssh_command("oc process logging-support-template | oc create -f -", ssh=False)
+        AOS.run_ssh_command("oc process logging-support-template -n {project}| oc create -n {project} -f -".format(project=AOS.osProject), ssh=False)
         imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
         AOS.set_annotation(imageStreams)
         AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
