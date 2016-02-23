@@ -734,10 +734,11 @@ function main {
             build_camel_docker_image
             ;;
         "chainbuild")
+            login_openshift "$del_project"
             chain_build
             ;;
         "push")
-#            login_openshift "$del_project"
+            #login_openshift "$del_project"
             push_docker
             ;;
         "docker")
