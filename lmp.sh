@@ -741,7 +741,7 @@ function main {
             push_docker
             ;;
         "docker")
-            echo "--confirm-def-push=false"
+            echo -e "sed -i 's#\(selinux-enabled\)#\1 --confirm-def-push=false#' /etc/sysconfig/docker\nservice docker restart"
             ;;
         *) usage
             ;;
