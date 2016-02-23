@@ -630,30 +630,39 @@ function chain_build {
     check_resource_validation "first s2i build to completed" "frontend-sti-1.\+Running" "2"
     oc start-build python-sample-build-sti
     check_resource_validation "second s2i build to completed" "python-sample-build-sti.\+Completed" "2"
+    echo "ImamgeStream updated:"
+    oc get is | grep sample-sti
+    echo "Builds:"
     oc get build
 }
 
 function push_docker {
-    oc process -f https://raw.githubusercontent.com/openshift-qe/v3-testfiles/master/build/ruby20rhel7-template-sti.json | oc create -f -
-    oc secrets new-dockercfg pushme --docker-username=chunyunchen --docker-password=redhat --docker-email=chunchen@redhat.com
+#    oc process -f https://raw.githubusercontent.com/openshift-qe/v3-testfiles/master/build/ruby20rhel7-template-sti.json | oc create -f -
+    oc delete project chun
+    sleep 6
+    oc new-project chun
+    oc secrets new-dockercfg pushme --docker-username=chunyunchen --docker-password=redhat7 --docker-email=chunchen@redhat.com
     oc secrets add serviceaccount/builder secrets/pushme
-    echo "Add below to origin-ruby-sample imagestream section"
-    cat << EOF
-         "spec":{
-         "dockerImageRepository": "docker.io/chunyunchen/origin-ruby-sample"
-       },
-EOF
-    sleep 6
-    oc edit imagestream/origin-ruby-sample -o json
-    echo "Add below to output: section"
-    cat << EOF
-output:
-    pushSecret:
-      name: pushme
-EOF
-    sleep 6
-    oc edit bc/ruby-sample-build 
-    oc start-build ruby-sample-build
+    echo -e "oc process -f ~/test/cfile/stibuild_push_secret.json | oc create -f - \
+          \nOR\n \
+          oc process -f ~/test/cfile/dockerbuild_push_secret.json | oc create -f -"
+    #echo "Add below to origin-ruby-sample imagestream section"
+#    cat << EOF
+#         "spec":{
+#         "dockerImageRepository": "docker.io/chunyunchen/origin-ruby-sample"
+#       },
+#EOF
+#    sleep 6
+#    oc edit imagestream/origin-ruby-sample -o json
+#    echo "Add below to output: section"
+#    cat << EOF
+#output:
+#    pushSecret:
+#      name: pushme
+#EOF
+#    sleep 6
+    echo "oc edit bc/ruby-sample-build "
+    echo "eg: oc start-build ruby-sample-build"
 }
 
 function main {
