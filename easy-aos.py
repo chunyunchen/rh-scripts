@@ -1,6 +1,9 @@
 #!/bin/env python
 
 from __future__ import print_function
+
+from termcolor import cprint
+
 import os, sys, re, time
 import pipes
 from subprocess import check_call,check_output,CalledProcessError,STDOUT
@@ -317,7 +320,7 @@ class AOS(object):
 
     @classmethod
     def start_origin_openshift(cls):
-        AOS.echo("Starting OpenShift Service...")
+        cprint("Starting OpenShift Service...","blue")
         outputs = AOS.run_ssh_command("openshift start --public-master=%s:8443 --write-config=/etc/origin" % AOS.master)
         nodeConfigPath = outputs.rstrip().split()[-1]
         nodeConfig = os.path.join(nodeConfigPath,"node-config.yaml")
