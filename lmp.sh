@@ -336,6 +336,7 @@ function set_annotation {
     local annotation_name="${2:-openshift.io/image.insecureRepository}"
     local annotation_value="${3:-true}"
     oc patch imagestreams $is_name  -p ''{\"metadata\":{\"annotations\":{\"$annotation_name\":\"$annotation_value\"}}}''
+    oc import-image $is_name
 }
 
 SA_metrics_deployer="https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics-deployer-setup.yaml"
@@ -693,12 +694,12 @@ function main {
             ;;
         "hch")
             login_openshift "$del_project"
-#            add_public_url
+            add_public_url
             up_hch_stack
             ;;
         "efk")
             login_openshift "$del_project"
-#            add_public_url
+            add_public_url
             add_admin_permission
             up_efk_stack
             remove_admin_permission

@@ -34,6 +34,7 @@ class AOS(object):
     EFKDeployer=""
 
     SSHIntoMaster=""
+    ScpFileFromMaster=""
     osProject=""
     delProject = False
 
@@ -146,6 +147,7 @@ class AOS(object):
             os.sys.exit()
 
         AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
+        AOS.ScpFileFromMaster = "scp -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s:" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
         AOS.osProject = re.match(r'\w+',AOS.osUser).group(0)
         AOS.ssh_validation()
         AOS.echo_user_info()
@@ -163,11 +165,17 @@ class AOS(object):
             outputs = check_output(remote_command, shell=asShell, stderr=STDOUT)
             return outputs
         except (CalledProcessError,OSError),e:
-            if "no process found" not in e.output:
+            if "no process found" not in e.output and "not found" not in e.output:
                 AOS.echo_command(remote_command)
                 AOS.echo(e.output)
                 print("Aborted!!!")
                 os.sys.exit()
+            elif "command" in e.output:
+                scpFileCMD = AOS.ScpFileFromMaster+"/etc/origin/master/admin.kubeconfig ."
+                check_output(scpFileCMD, shell=asShell, stderr=STDOUT)
+                localCMD = '{} --config={}'.format(cmd, 'admin.kubeconfig')
+                outputs = check_output(localCMD, shell=asShell, stderr=STDOUT)
+                return outputs
 
     @classmethod
     def do_permission(cls,role_type,role_name,user=None):
@@ -211,10 +219,10 @@ class AOS(object):
             project = re.findall(AOS.osProject,AOS.run_ssh_command("oc get project",ssh=False))
             if 0 < len(project):
                 AOS.run_ssh_command("oc delete project {}".format(AOS.osProject),ssh=False)
-                AOS.resource_validate("oc get projects", r".*{}.*".format(AOS.osProject), dstNum=0)
+                AOS.resource_validate("oc get projects", r"{}\s+".format(AOS.osProject), dstNum=0)
 
         outputs = AOS.run_ssh_command("oc get projects", ssh=False)
-        project = re.findall(r".*{}.*".format(AOS.osProject), outputs)
+        project = re.findall(r"{}\s+".format(AOS.osProject), outputs)
         if 0 == len(project):
             AOS.echo("Creating project *{}*".format(AOS.osProject))
             AOS.run_ssh_command("oc new-project {}".format(AOS.osProject),ssh=False)
@@ -256,6 +264,7 @@ class AOS(object):
         isList = [x.split()[0] for x in imageStreams.strip().split('\n')]
         for osIS in isList:
             AOS.run_ssh_command('oc patch imagestreams {}  -p {}'.format(osIS, pipes.quote('{"metadata":{"annotations":{"openshift.io/image.insecureRepository":"true"}}}')), ssh=False)
+            AOS.run_ssh_command('oc import-image {}'.format(osIS), ssh=False)
 
     @classmethod
     def start_metrics_stack(cls):
@@ -271,14 +280,25 @@ class AOS(object):
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*Running.*")
 
     @classmethod
+    def clean_logging_objects(cls):
+        AOS.echo("Cleanup resources related to logging stack...")
+        AOS.run_ssh_command("oc delete all --selector logging-infra=kibana", ssh=False)
+        AOS.run_ssh_command("oc delete all --selector logging-infra=fluentd", ssh=False)
+        AOS.run_ssh_command("oc delete all --selector logging-infra=elasticsearch", ssh=False)
+        AOS.run_ssh_command("oc delete all,sa,oauthclient --selector logging-infra=support", ssh=False)
+        AOS.run_ssh_command("oc delete sa logging-deployer", ssh=False)
+        AOS.run_ssh_command("oc delete secret logging-deployer logging-fluentd logging-elasticsearch logging-es-proxy logging-kibana logging-kibana-proxy logging-kibana-ops-proxy", ssh=False)
+
+    @classmethod
     def start_logging_stack(cls):
         AOS.login_server()
         AOS.echo("Start deploying logging stack pods...")
+        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
+        AOS.clean_logging_objects()
         AOS.run_ssh_command("oc secrets new logging-deployer nothing=/dev/null",ssh=False)
         AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -',\
-                            ssh=False)
-        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
-        AOS.delete_oauth()
+                                                                                                                                                                ssh=False)
+#        AOS.delete_oauth()
         AOS.do_permission("add-role-to-user","edit",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
         AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
         AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
