@@ -390,7 +390,7 @@ class AOS(object):
         AOS.run_ssh_command("oc delete dc --all -n default; oc delete rc --all -n default; oc delete pods --all -n default; oc delete svc --all -n default; oc delete is --all -n openshift")
         # Add permission for creating router
         AOS.run_ssh_command("oadm policy add-scc-to-user privileged system:serviceaccount:default:default")
-        cprint("Starting to create registry and router pods",'blue')
+        cprint("Creating registry and router pods",'blue')
         cmd = "export CURL_CA_BUNDLE=/etc/origin/master/ca.crt; \
                   chmod a+rwX /etc/origin/master/admin.kubeconfig; \
                   chmod +r /etc/origin/master/openshift-registry.kubeconfig; \
