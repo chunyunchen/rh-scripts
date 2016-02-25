@@ -7,7 +7,7 @@ import pipes
 from subprocess import check_call,check_output,CalledProcessError,STDOUT
 from ConfigParser import SafeConfigParser
 from argparse import ArgumentParser, Namespace
-
+from datetime import datetime
 
 try:
     from termcolor import cprint
@@ -123,10 +123,15 @@ class AOS(object):
         print("master: {}".format(AOS.master))
         print("user: {}".format(AOS.osUser))
         print("project: {}".format(AOS.osProject))
+     
+    @staticmethod
+    def get_current_time_str():
+        now = datetime.now()
+        return now.strftime("%Y-%m-%d %H:%M:%S")
 
     @staticmethod
     def echo_command(cmd="Please wait..."):
-        cprint("[Running Command]: {}\n".format(cmd),'magenta')
+        cprint("[{}]Running Command: {}\n".format(AOS.get_current_time_str(), cmd),'magenta')
 
     @staticmethod
     def echo(msg):
@@ -246,12 +251,14 @@ class AOS(object):
 
     @staticmethod
     def loginedOnce():
-        outputs = AOS.run_ssh_command("oc config current-context", ssh=False)
+        #outputs = AOS.run_ssh_command("oc config current-context", ssh=False)
+        #if AOS.master.replace('.','-') not in outputs:
+        outputs = AOS.run_ssh_command("grep {} ~/.kube/config".format(AOS.master), ssh=False)
         loginCMD = "oc login {0} -u {1} -p {2}".format(AOS.master, AOS.osUser, AOS.osPasswd)
-        if AOS.master.replace('.','-') not in outputs:
-            print("[ IMPORTANT ] Need login this master once by manual! [ IMPORTANT ]")
-            print("Please run below login command line:")
-            print(loginCMD)
+        if not re.findall(AOS.master, outputs):
+            cprint("[ IMPORTANT ] Need login this master once by manual! [ IMPORTANT ]",'red')
+            cprint("Please run below login command line:",'red')
+            cprint(loginCMD,'green')
             os.sys.exit()
 
     @classmethod
@@ -342,7 +349,7 @@ class AOS(object):
         AOS.run_ssh_command("sed -i -e '/loggingPublicURL:/d' -e '/metricsPublicURL:/d' %s" % masterConfig)
         AOS.run_ssh_command("killall openshift")
         AOS.run_ssh_command("echo export KUBECONFIG=%s >> ~/.bashrc; nohup openshift start --node-config=%s --master-config=%s &> openshift.log &" % (kubeConfig,nodeConfig,masterConfig))
-        AOS.resource_validate("oc get projects", r"Active")
+        AOS.resource_validate("oc get projects", r"Active", enableSsh=True)
 
         # For automation cases related admin role
         master = AOS.master.replace('.','-')
