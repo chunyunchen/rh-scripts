@@ -646,7 +646,7 @@ function push_docker {
     oc secrets add serviceaccount/builder secrets/pushme
     echo -e "oc process -f ~/test/cfile/stibuild_push_secret.json | oc create -f - \
           \nOR\n \
-          oc process -f ~/test/cfile/dockerbuild_push_secret.json | oc create -f -"
+oc process -f ~/test/cfile/dockerbuild_push_secret.json | oc create -f -"
     #echo "Add below to origin-ruby-sample imagestream section"
 #    cat << EOF
 #         "spec":{
@@ -743,7 +743,7 @@ function main {
             push_docker
             ;;
         "docker")
-            echo -e "sed -i 's#\(selinux-enabled\)#\1 --confirm-def-push=false#' /etc/sysconfig/docker\nservice docker restart"
+            echo -e "sed -i '/OPTIONS/a OPTIONS=\"--confirm-def-push=false\"' /etc/sysconfig/docker\nservice docker restart"
             ;;
         *) usage
             ;;
