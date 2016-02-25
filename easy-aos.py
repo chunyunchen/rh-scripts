@@ -2,14 +2,26 @@
 
 from __future__ import print_function
 
-from termcolor import cprint
-
 import os, sys, re, time
 import pipes
 from subprocess import check_call,check_output,CalledProcessError,STDOUT
 from ConfigParser import SafeConfigParser
 from argparse import ArgumentParser, Namespace
 
+
+try:
+    from termcolor import cprint
+except ImportError:
+    print('No termcolor module found,please download "termcolor.py" file from same place!')
+    yes = raw_input('Download "termcolor.py" under current dir? [y/n]: ')
+    if 'y' == yes.lower():
+        dstFile = raw_input('input the URL of file(eg: http://10.66.128.58/client/termcolor.py): ')
+        check_output('wget {}'.format(dstFile), shell=True)
+        print('\033[1;31m[IMPORTANT] Please copy it to the same directory as "easy-aos.py"!!! [IMPORTANT]\033[0m')
+    else:
+       print("Please download the file later!")
+
+    os.sys.exit(1)
 
 config = SafeConfigParser()
 class AOS(object):
@@ -107,14 +119,14 @@ class AOS(object):
 
     @staticmethod
     def echo_user_info():
-        AOS.echo("User info:")
+        cprint("User info:",'blue')
         print("master: {}".format(AOS.master))
         print("user: {}".format(AOS.osUser))
         print("project: {}".format(AOS.osProject))
 
     @staticmethod
     def echo_command(cmd="Please wait..."):
-        print("[Running Command]: {}\n".format(cmd))
+        cprint("[Running Command]: {}\n".format(cmd),'magenta')
 
     @staticmethod
     def echo(msg):
@@ -133,7 +145,7 @@ class AOS(object):
 
     @classmethod
     def check_validation(cls,args):
-        AOS.echo("Checking confiures...")
+        cprint("Checking confiures...",'blue')
         AOS.generate_default_config()
         AOS.get_config(args)
         notification_items = []
@@ -145,8 +157,8 @@ class AOS(object):
             notification_items.append("[ssh].pem_file")
 
         if 0 < len(notification_items):
-            print("Please set below parameter(s) under %s config file:" % os.path.abspath(AOS.osConfig))
-            print('\n'.join(notification_items))
+            cprint("Please set below parameter(s) under %s config file:" % os.path.abspath(AOS.osConfig),'green',on_color='on_blue',attrs=['bold'])
+            cprint('\n'.join(notification_items),'green')
             os.sys.exit()
 
         AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
@@ -170,8 +182,8 @@ class AOS(object):
         except (CalledProcessError,OSError),e:
             if "no process found" not in e.output and "not found" not in e.output:
                 AOS.echo_command(remote_command)
-                AOS.echo(e.output)
-                print("Aborted!!!")
+                cprint(e.output,'red')
+                cprint("Aborted!!!",'red',on_color='bold')
                 os.sys.exit()
             elif "command" in e.output:
                 scpFileCMD = AOS.ScpFileFromMaster+"/etc/origin/master/admin.kubeconfig ."
@@ -192,17 +204,17 @@ class AOS(object):
             pre_cmd = "oadm policy"
         if "add-" in role_type:
             if "cluster" in role_type:
-                AOS.echo("Note: *%s* user has '%s' admin role! Be Careful!!!" % (user,role_name))
+                cprint("Note: *%s* user has '%s' admin role! Be Careful!!!" % (user,role_name),'red')
             else:
-                AOS.echo("Added '%s' role to *%s* user!" % (role_name,user))
+                cprint("Added '%s' role to *%s* user!" % (role_name,user),'blue')
         elif "remove-" in role_type:
-            AOS.echo("Removed '%s' role from *%s* user." % (role_name,user))
+            cprint("Removed '%s' role from *%s* user." % (role_name,user),'green')
         command = "%s %s %s %s" % (pre_cmd,role_type,role_name,user)
         AOS.run_ssh_command(command,ssh=enableSSH)
 
     @staticmethod
     def resource_validate(cmd, reStr, dstNum=3, enableSsh=False):
-        AOS.echo("Wait above operation to finished...")
+        cprint("Wait above operation to finished...",'blue')
 
         iloop = 50
         interval = 6
@@ -212,13 +224,13 @@ class AOS(object):
             iloop -= 1
 
         if iloop == 0:
-            AOS.echo("Operation is not finished, timeout {} seconds".format(timeout))
+            cprint("Operation is not finished, timeout {} seconds".format(timeout),'yellow')
             os.sys.exit()
 
     @classmethod
     def add_project(cls):
         if AOS.delProject:
-            AOS.echo("Deleting project *{}*".format(AOS.osProject))
+            cprint("Deleting project *{}*".format(AOS.osProject),'blue')
             project = re.findall(AOS.osProject,AOS.run_ssh_command("oc get project",ssh=False))
             if 0 < len(project):
                 AOS.run_ssh_command("oc delete project {}".format(AOS.osProject),ssh=False)
@@ -227,7 +239,7 @@ class AOS(object):
         outputs = AOS.run_ssh_command("oc get projects", ssh=False)
         project = re.findall(r"{}\s+".format(AOS.osProject), outputs)
         if 0 == len(project):
-            AOS.echo("Creating project *{}*".format(AOS.osProject))
+            cprint("Creating project *{}*".format(AOS.osProject),'blue')
             AOS.run_ssh_command("oc new-project {}".format(AOS.osProject),ssh=False)
 
         AOS.run_ssh_command("oc project {}".format(AOS.osProject), ssh=False)
@@ -245,6 +257,7 @@ class AOS(object):
     @classmethod
     def login_server(cls):
         AOS.loginedOnce()
+        cprint('Log into OpenShift...','blue')
         AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.master,AOS.osUser,AOS.osPasswd),ssh=False)
         AOS.add_project()
 
@@ -272,7 +285,7 @@ class AOS(object):
     @classmethod
     def start_metrics_stack(cls):
         AOS.login_server()
-        AOS.echo("starting metrics stack...")
+        cprint("starting metrics stack...",'blue')
         AOS.run_ssh_command("oc create -f %s" % AOS.SAMetricsDeployer, ssh=False)
         AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:heapster" % AOS.osProject)
         AOS.do_permission("add-role-to-user","edit", user="system:serviceaccount:%s:metrics-deployer" % AOS.osProject)
@@ -284,7 +297,7 @@ class AOS(object):
 
     @classmethod
     def clean_logging_objects(cls):
-        AOS.echo("Cleanup resources related to logging stack...")
+        cprint("Cleanup resources related to logging stack...",'blue')
         AOS.run_ssh_command("oc delete all --selector logging-infra=kibana", ssh=False)
         AOS.run_ssh_command("oc delete all --selector logging-infra=fluentd", ssh=False)
         AOS.run_ssh_command("oc delete all --selector logging-infra=elasticsearch", ssh=False)
@@ -295,7 +308,7 @@ class AOS(object):
     @classmethod
     def start_logging_stack(cls):
         AOS.login_server()
-        AOS.echo("Start deploying logging stack pods...")
+        cprint("Start deploying logging stack pods...",'blue')
         AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         AOS.clean_logging_objects()
         AOS.run_ssh_command("oc secrets new logging-deployer nothing=/dev/null",ssh=False)
@@ -341,23 +354,23 @@ class AOS(object):
             AOS.create_imagestream_into_openshift_project()
             AOS.pull_metrics_and_logging_images()
             AOS.clone_metrics_and_logging_gitrepos()
-        AOS.echo("Success! OpenShift Server is UP. ^_^")
+        cprint("Success! OpenShift Server is UP. ^_^",'green')
 
     @staticmethod
     def clone_metrics_and_logging_gitrepos():
-        AOS.echo("Cloning logging/metrics git repos to %s under $HOME dir for building related images..." % AOS.master)
+        cprint("Cloning logging/metrics git repos to %s under $HOME dir for building related images..." % AOS.master,'blue')
         cmd = "git clone https://github.com/openshift/origin-metrics.git; git clone https://github.com/openshift/origin-aggregated-logging.git"
         AOS.run_ssh_command(cmd)
 
     @staticmethod
     def create_imagestream_into_openshift_project():
-        AOS.echo("Creating basic imagestream and metrics/logging templates in *openshift* namespace...")
+        cprint("Creating basic imagestream and metrics/logging templates in *openshift* namespace...",'blue')
         cmd = "oc create -n openshift -f https://raw.githubusercontent.com/openshift/origin/master/examples/image-streams/image-streams-rhel7.json && oc create -n openshift -f https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics.yaml && oc create -n openshift -f https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployment/deployer.yaml"
         AOS.run_ssh_command(cmd)
 
     @staticmethod
     def pull_metrics_and_logging_images():
-        AOS.echo("Pulling down metrics and logging images form DockerHub registry...")
+        cprint("Pulling down metrics and logging images form DockerHub registry...",'blue')
         imagePrefixs = {"openshift/origin-","registry.access.redhat.com/openshift3/"}
         images = {"metrics-hawkular-metrics","metrics-heapster","metrics-cassandra","metrics-deployer",\
                   "logging-kibana","logging-fluentd","logging-elasticsearch","logging-auth-proxy","logging-deployment"}
@@ -370,7 +383,7 @@ class AOS(object):
         AOS.run_ssh_command("oc delete dc --all -n default; oc delete rc --all -n default; oc delete pods --all -n default; oc delete svc --all -n default; oc delete is --all -n openshift")
         # Add permission for creating router
         AOS.run_ssh_command("oadm policy add-scc-to-user privileged system:serviceaccount:default:default")
-        AOS.echo("Starting to create registry and router pods")
+        cprint("Starting to create registry and router pods",'blue')
         cmd = "export CURL_CA_BUNDLE=/etc/origin/master/ca.crt; \
                   chmod a+rwX /etc/origin/master/admin.kubeconfig; \
                   chmod +r /etc/origin/master/openshift-registry.kubeconfig; \
