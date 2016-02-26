@@ -76,7 +76,7 @@ class AOS(object):
         config.set('image','hch_stack','https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics.yaml')
         config.set('image','image_prefix','rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/')
         config.set('image','image_version','latest')
-        config.set('image','enable_pv','False')
+        config.set('image','enable_pv','false')
         config.set('image','elastic_ram','1024M')
         config.set('image','elastic_cluster_size','1')
         config.set('image','efk_deployer','https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployment/deployer.yaml')
@@ -102,7 +102,7 @@ class AOS(object):
         AOS.HCHStack = config.get("image","hch_stack")
         AOS.imagePrefix = config.get("image","image_prefix")
         AOS.imageVersion = config.get("image","image_version")
-        AOS.enablePV = config.getboolean("image","enable_pv")
+        AOS.enablePV = config.get("image","enable_pv")
         AOS.ESRam = config.get("image","elastic_ram")
         AOS.ESClusterSize = config.get("image","elastic_cluster_size")
         AOS.EFKDeployer = config.get("image","efk_deployer")
@@ -297,9 +297,9 @@ class AOS(object):
         AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:heapster" % AOS.osProject)
         AOS.do_permission("add-role-to-user","edit", user="system:serviceaccount:%s:metrics-deployer" % AOS.osProject)
         AOS.run_ssh_command("oc secrets new metrics-deployer nothing=/dev/null",ssh=False)
-        AOS.run_ssh_command("oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.$SUBDOMAIN,\
-        IMAGE_PREFIX=$Image_prefix,IMAGE_VERSION=$Image_version,USE_PERSISTENT_STORAGE=$Use_pv,MASTER_URL=https://$OS_MASTER:8443\
-        |oc create -f -" %s (AOS.hawkularMetricsAppname,), ssh=False)
+        subdomain = AOS.get_subdomain()
+        AOS.run_ssh_command("oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.%s,IMAGE_PREFIX=%s,IMAGE_VERSION=%s,USE_PERSISTENT_STORAGE=%s,MASTER_URL=https://%s:8443\
+        |oc create -f -" % (AOS.hawkularMetricsAppname,subdomain,AOS.imagePrefix,AOS.imageVersion,AOS.enablePV,AOS.master), ssh=False)
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*Running.*")
 
     @classmethod
