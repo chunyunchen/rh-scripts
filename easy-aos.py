@@ -251,12 +251,10 @@ class AOS(object):
 
     @staticmethod
     def loginedOnce():
-        #outputs = AOS.run_ssh_command("oc config current-context", ssh=False)
-        #if AOS.master.replace('.','-') not in outputs:
-        outputs = AOS.run_ssh_command("grep {} ~/.kube/config".format(AOS.master), ssh=False)
         loginCMD = "oc login {0} -u {1} -p {2}".format(AOS.master, AOS.osUser, AOS.osPasswd)
-        #if not re.findall(AOS.master, outputs):
-        if not outputs:
+
+        fExist = os.path.exists(os.path.expanduser('~/.kube/config'))
+        if not fExist or not AOS.run_ssh_command("grep {} ~/.kube/config".format(AOS.master), ssh=False):
             cprint("[ IMPORTANT ] Need login this master once by manual! [ IMPORTANT ]",'red')
             cprint("Please run below login command line:",'red')
             cprint(loginCMD,'green')
@@ -285,10 +283,11 @@ class AOS(object):
 
     @classmethod
     def set_annotation(cls, imageStreams):
+        cprint('Import tags for imagestreams...','blue')
         isList = [x.split()[0] for x in imageStreams.strip().split('\n')]
         for osIS in isList:
             AOS.run_ssh_command('oc patch imagestreams {}  -p {}'.format(osIS, pipes.quote('{"metadata":{"annotations":{"openshift.io/image.insecureRepository":"true"}}}')), ssh=False)
-            AOS.run_ssh_command('oc tag --source=docker {}:{} {}{}'.format(osIS, AOS.imageVersion, AOS.imagePrefix, osIS), ssh=False)
+            AOS.run_ssh_command('oc tag --source=docker {}{} {}:{}'.format(AOS.imagePrefix, osIS, osIS, AOS.imageVersion), ssh=False)
             AOS.run_ssh_command('oc import-image {} --insecure=true'.format(osIS), ssh=False)
 
     @classmethod
