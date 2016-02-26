@@ -185,10 +185,10 @@ class AOS(object):
             outputs = check_output(remote_command, shell=asShell, stderr=STDOUT)
             return outputs
         except (CalledProcessError,OSError),e:
-            if "no process found" not in e.output and "not found" not in e.output:
+            if e.output and "no process found" not in e.output and "not found" not in e.output:
                 AOS.echo_command(remote_command)
                 cprint(e.output,'red')
-                cprint("Aborted!!!",'red',on_color='bold')
+                cprint("Aborted!!!",'red',attrs=['bold'])
                 os.sys.exit()
             elif "command" in e.output:
                 scpFileCMD = AOS.ScpFileFromMaster+"/etc/origin/master/admin.kubeconfig ."
@@ -255,7 +255,8 @@ class AOS(object):
         #if AOS.master.replace('.','-') not in outputs:
         outputs = AOS.run_ssh_command("grep {} ~/.kube/config".format(AOS.master), ssh=False)
         loginCMD = "oc login {0} -u {1} -p {2}".format(AOS.master, AOS.osUser, AOS.osPasswd)
-        if not re.findall(AOS.master, outputs):
+        #if not re.findall(AOS.master, outputs):
+        if not outputs:
             cprint("[ IMPORTANT ] Need login this master once by manual! [ IMPORTANT ]",'red')
             cprint("Please run below login command line:",'red')
             cprint(loginCMD,'green')
@@ -287,7 +288,8 @@ class AOS(object):
         isList = [x.split()[0] for x in imageStreams.strip().split('\n')]
         for osIS in isList:
             AOS.run_ssh_command('oc patch imagestreams {}  -p {}'.format(osIS, pipes.quote('{"metadata":{"annotations":{"openshift.io/image.insecureRepository":"true"}}}')), ssh=False)
-            AOS.run_ssh_command('oc import-image {}'.format(osIS), ssh=False)
+            AOS.run_ssh_command('oc tag --source=docker {}:{} {}{}'.format(osIS, AOS.imageVersion, AOS.imagePrefix, osIS), ssh=False)
+            AOS.run_ssh_command('oc import-image {} --insecure=true'.format(osIS), ssh=False)
 
     @classmethod
     def start_metrics_stack(cls):
@@ -337,6 +339,10 @@ class AOS(object):
         imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
         AOS.set_annotation(imageStreams)
         AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
+        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+)", dstNum=3)
+        #outputs = AOS.run_ssh_command("oc get dc --no-headers -n {}".format(AOS.osProject), ssh=False)
+        #AOS.scale_up_pod(outputs)
+        #AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas=1",)
 
     @classmethod
     def start_origin_openshift(cls):
