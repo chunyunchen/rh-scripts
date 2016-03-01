@@ -52,6 +52,8 @@ class AOS(object):
     ScpFileFromMaster=""
     osProject=""
     delProject = False
+    pullLoggingMetricsImage = False
+    enableLoggingMetricsWebConsole = False
 
     @staticmethod
     def generate_default_config():
@@ -114,6 +116,10 @@ class AOS(object):
                 AOS.osProject = args.p
             if args.d:
                 AOS.delProject = args.d
+            if args.pull:
+                AOS.pullLoggingMetricsImage = args.pull
+            if args.web:
+                AOS.enableLoggingMetricsWebConsole = args.web
         except AttributeError:
             pass
 
@@ -271,7 +277,7 @@ class AOS(object):
     def get_subdomain(cls):
         masterConfig = os.path.join(AOS.masterConfigRoot, AOS.masterConfigFile)
         outputs = AOS.run_ssh_command("grep subdomain {}".format(masterConfig))
-        subdomain = outputs.split('"')[1]
+        subdomain = outputs.split()[-1].strip('"')
         return subdomain
 
     @classmethod
@@ -302,6 +308,7 @@ class AOS(object):
         AOS.run_ssh_command("oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.%s,IMAGE_PREFIX=%s,IMAGE_VERSION=%s,USE_PERSISTENT_STORAGE=%s,MASTER_URL=https://%s:8443\
         |oc create -f -" % (AOS.hawkularMetricsAppname,subdomain,AOS.imagePrefix,AOS.imageVersion,AOS.enablePV,AOS.master), ssh=False)
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*Running.*")
+        cprint("Success!","green")
 
     @classmethod
     def clean_logging_objects(cls):
@@ -342,6 +349,7 @@ class AOS(object):
         #outputs = AOS.run_ssh_command("oc get dc --no-headers -n {}".format(AOS.osProject), ssh=False)
         #AOS.scale_up_pod(outputs)
         #AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas=1",)
+        cprint("Success!","green")
 
     @classmethod
     def start_origin_openshift(cls):
@@ -364,8 +372,9 @@ class AOS(object):
         if 0 == len(allRunningPods):
             AOS.create_default_pods()
             AOS.create_imagestream_into_openshift_project()
-            AOS.pull_metrics_and_logging_images()
             AOS.clone_metrics_and_logging_gitrepos()
+            if AOS.pullLoggingMetricsImage:
+               AOS.pull_metrics_and_logging_images()
         cprint("Success! OpenShift Server is UP. ^_^",'green')
 
     @staticmethod
@@ -414,7 +423,9 @@ class AOS(object):
         subCommonArgs = ArgumentParser(add_help=False)
         subCommonArgs.add_argument('-p', help="Specify OpenShift project")
         subCommonArgs.add_argument('-d', action="store_true",\
-                                         help="Delete OpenShift project and Re-create. Default value is False")
+                                         help="Delete OpenShift project and Re-create. Default is False")
+        subCommonArgs.add_argument('--web', action="store_true",\
+                                         help="Add public URL to master config file for accessing metrics and logging via web console.Default is False.[Not implemented]")
     
         commands = ArgumentParser(parents=[commonArgs],description="Setup OpenShift on EC2 or Deploy metrics/logging stack")
         subCommands = commands.add_subparsers(title='subcommands:')
@@ -423,6 +434,8 @@ class AOS(object):
         startos = subCommands.add_parser('startos', parents=[commonArgs],\
                                                     description="Start OpenShift server",\
                                                     help="start OpenShift service")
+        startos.add_argument('--pull', action="store_true",\
+                                       help="Docker pull the metrics and logging related images from DockerHub.Default is False")
         startos.set_defaults(subcommand=AOS.start_origin_openshift)
     
         # Sub-command for deploying metrics stack
