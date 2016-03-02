@@ -145,7 +145,7 @@ function start_origin_openshift {
     $SSH "ps aux |grep \"openshift start\" |grep -v grep; echo -n" > .openshift_process
     for pid in $(awk '{print $2}' .openshift_process)
     do
-        $SSH "kill $pid"
+        $SSH "kill -9 $pid"
     done
     rm -f .openshift_process
     sleep 1

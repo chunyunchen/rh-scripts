@@ -109,6 +109,7 @@ class AOS(object):
         AOS.ESClusterSize = config.get("image","elastic_cluster_size")
         AOS.EFKDeployer = config.get("image","efk_deployer")
 
+        AOS.osProject = re.match(r'\w+',AOS.osUser).group(0)
         try:
             if args.m:
                 AOS.master = args.m
@@ -174,7 +175,6 @@ class AOS(object):
 
         AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
         AOS.ScpFileFromMaster = "scp -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s:" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
-        AOS.osProject = re.match(r'\w+',AOS.osUser).group(0)
         AOS.ssh_validation()
         AOS.echo_user_info()
 
@@ -306,7 +306,7 @@ class AOS(object):
         AOS.do_permission("add-role-to-user","edit", user="system:serviceaccount:%s:metrics-deployer" % AOS.osProject)
         AOS.run_ssh_command("oc secrets new metrics-deployer nothing=/dev/null",ssh=False)
         subdomain = AOS.get_subdomain()
-        AOS.run_ssh_command("oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.%s,IMAGE_PREFIX=%s,IMAGE_VERSION=%s,USE_PERSISTENT_STORAGE=%s,MASTER_URL=https://%s:8443\
+        AOS.run_ssh_command("oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.%s,IMAGE_PREFIX=%s,IMAGE_VERSION=%s,USE_PERSISTENT_STORAGE=%s,MASTER_URL=https://%s:8443,CASSANDRA_PV_SIZE=5Gi\
         |oc create -f -" % (AOS.hawkularMetricsAppname,subdomain,AOS.imagePrefix,AOS.imageVersion,AOS.enablePV,AOS.master), ssh=False)
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*Running.*")
         cprint("Success!","green")
