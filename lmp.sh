@@ -583,7 +583,7 @@ function usage {
 }
 
 # Show json to create under openshift project for tsting JVM console related
-function show_is_fis-java-openshift {
+function show_is_fis_java_openshift {
     is_fis=/home/chunchen/test/cfile/is_fis-java-openshift.json
     echo "From File: $is_fis"
     echo "Available Image Prefix: rcm-img-docker01.build.eng.bos.redhat.com:5001 | registry.access.redhat.com "
@@ -729,7 +729,7 @@ function main {
             create_camel_apps
             ;;
         "show-is")
-            show_is_fis-java-openshift
+            show_is_fis_java_openshift
             ;;
         "build_camel")
             build_camel_docker_image

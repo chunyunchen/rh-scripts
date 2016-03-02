@@ -295,6 +295,7 @@ class AOS(object):
             AOS.run_ssh_command('oc patch imagestreams {}  -p {}'.format(osIS, pipes.quote('{"metadata":{"annotations":{"openshift.io/image.insecureRepository":"true"}}}')), ssh=False)
             AOS.run_ssh_command('oc tag --source=docker {}{} {}:{}'.format(AOS.imagePrefix, osIS, osIS, AOS.imageVersion), ssh=False)
             AOS.run_ssh_command('oc import-image {} --insecure=true'.format(osIS), ssh=False)
+            time.sleep(5)
 
     @classmethod
     def start_metrics_stack(cls):
