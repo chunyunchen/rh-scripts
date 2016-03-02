@@ -31,7 +31,7 @@ MASTER_CONFIG_URL="$CONFIG_HOST/$MASTER_CONFIG_FILE"
 CURLORSSH="ssh"
 START_OPENSHIFT="false"
 SUDO=""
-########
+#######
 podproject=${OS_USER}pj2
 podimage="bmeng/hello-openshift"
 initialPodNum=1
