@@ -112,22 +112,20 @@ class AOS(object):
         if AOS.osUser:
            AOS.osProject = re.match(r'\w+',AOS.osUser).group(0)
         
+        arg_map_to_param = {'m': 'master',
+                            'p': 'osProject',
+                            'd': 'delProject',
+                            'pull': 'pullLoggingMetricsImage',
+                            'web': 'enableLoggingMetricsWebConsole',
+                            'prefix': 'imagePrefix',
+                            'mtag': 'imageVersion'
+                           }
         existedArgs = vars(args).items()
-        for arg, value in existedArgs:
-            if  value and 'm' is arg:
-                AOS.master = value
-            if  value and 'p' is arg:
-                AOS.osProject = value
-            if 'd' is arg:
-                AOS.delProject = value 
-            if 'pull' is arg:
-                AOS.pullLoggingMetricsImage = value
-            if 'web' is arg:
-                AOS.enableLoggingMetricsWebConsole = value
-            if  value and 'prefix' is arg:
-                AOS.imagePrefix = value
-            if  value and 'mtag' is arg:
-                AOS.imageVersion = value 
+        for arg,value in existedArgs:
+            print(type(vars(AOS)[arg_map_to_param[arg]]))
+            print(vars(AOS))
+            print(vars(AOS)[arg_map_to_param[arg]])
+            vars(AOS)[arg_map_to_param[arg]] = value
 
     @staticmethod
     def echo_user_info():
