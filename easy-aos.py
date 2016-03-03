@@ -76,7 +76,7 @@ class AOS(object):
         config.set('image','kibana_appname','kibana')
         config.set('image','serviceaccount_metrics_deployer','https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics-deployer-setup.yaml')
         config.set('image','hch_stack','https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics.yaml')
-        config.set('image','image_prefix','rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/')
+        config.set('image','image_prefix','brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888/openshift3/')
         config.set('image','image_version','latest')
         config.set('image','enable_pv','false')
         config.set('image','elastic_ram','1024M')
@@ -109,20 +109,25 @@ class AOS(object):
         AOS.ESClusterSize = config.get("image","elastic_cluster_size")
         AOS.EFKDeployer = config.get("image","efk_deployer")
 
-        AOS.osProject = re.match(r'\w+',AOS.osUser).group(0)
-        try:
-            if args.m:
-                AOS.master = args.m
-            if args.p:
-                AOS.osProject = args.p
-            if args.d:
-                AOS.delProject = args.d
-            if args.pull:
-                AOS.pullLoggingMetricsImage = args.pull
-            if args.web:
-                AOS.enableLoggingMetricsWebConsole = args.web
-        except AttributeError:
-            pass
+        if AOS.osUser:
+           AOS.osProject = re.match(r'\w+',AOS.osUser).group(0)
+        
+        existedArgs = vars(args).items()
+        for arg, value in existedArgs:
+            if  value and 'm' is arg:
+                AOS.master = value
+            if  value and 'p' is arg:
+                AOS.osProject = value
+            if 'd' is arg:
+                AOS.delProject = value 
+            if 'pull' is arg:
+                AOS.pullLoggingMetricsImage = value
+            if 'web' is arg:
+                AOS.enableLoggingMetricsWebConsole = value
+            if  value and 'prefix' is arg:
+                AOS.imagePrefix = value
+            if  value and 'mtag' is arg:
+                AOS.imageVersion = value 
 
     @staticmethod
     def echo_user_info():
@@ -130,6 +135,8 @@ class AOS(object):
         print("master: {}".format(AOS.master))
         print("user: {}".format(AOS.osUser))
         print("project: {}".format(AOS.osProject))
+        print("image prefix: {}".format(AOS.imagePrefix))
+        print("image version: {}".format(AOS.imageVersion))
      
     @staticmethod
     def get_current_time_str():
@@ -427,6 +434,8 @@ class AOS(object):
                                          help="Delete OpenShift project and Re-create. Default is False")
         subCommonArgs.add_argument('--web', action="store_true",\
                                          help="Add public URL to master config file for accessing metrics and logging via web console.Default is False.[Not implemented]")
+        subCommonArgs.add_argument('--prefix',help="Image prefix, eg:brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888/openshift3/")
+        subCommonArgs.add_argument('--mtag',help="Image tag, eg: latest")
     
         commands = ArgumentParser(parents=[commonArgs],description="Setup OpenShift on EC2 or Deploy metrics/logging stack")
         subCommands = commands.add_subparsers(title='subcommands:')
