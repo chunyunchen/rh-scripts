@@ -122,10 +122,9 @@ class AOS(object):
                            }
         existedArgs = vars(args).items()
         for arg,value in existedArgs:
-            print(type(vars(AOS)[arg_map_to_param[arg]]))
-            print(vars(AOS))
-            print(vars(AOS)[arg_map_to_param[arg]])
-            vars(AOS)[arg_map_to_param[arg]] = value
+            aosVar = arg_map_to_param.get(arg)
+            if value and aosVar: 
+               setattr(AOS, aosVar, value)
 
     @staticmethod
     def echo_user_info():
