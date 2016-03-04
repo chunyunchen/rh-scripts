@@ -405,7 +405,7 @@ API
     check_resource_validation "creating dc/logging-fluentd" "logging-fluentd" "1" "deploymentconfigs"
     check_resource_validation "creating rc/logging-fluentd-1" "logging-fluentd-1" "1" "replicationcontrollers"
     # Enable fluentd service account
-    fix_scc_permission "privileged" "system:serviceaccount:$PROJECT:aggregated-logging-fluentd"
+    fix_scc_permission "hostmount-anyuid" "system:serviceaccount:$PROJECT:aggregated-logging-fluentd"
     # Scale Fluentd Pod
     local fluentd_pod_num=$(get_node_num)
     local additional_num=2

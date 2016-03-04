@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/bin/env python2
 
 from __future__ import print_function
 
@@ -18,10 +18,10 @@ except ImportError:
         dstFile = raw_input('input the URL of file(eg: http://10.66.128.58/client/termcolor.py): ')
         check_output('wget {}'.format(dstFile), shell=True)
         print('\033[1;31m[IMPORTANT] Please copy it to the same directory as "easy-aos.py"!!! [IMPORTANT]\033[0m')
+        os.sys.exit(1)
     else:
-       print("Please download the file later!")
-
-    os.sys.exit(1)
+       print("Note: The default color will be used for output messages.")
+       cprint = print
 
 config = SafeConfigParser()
 class AOS(object):
@@ -194,7 +194,7 @@ class AOS(object):
         try:
             outputs = check_output(remote_command, shell=asShell, stderr=STDOUT)
             return outputs
-        except (CalledProcessError,OSError),e:
+        except (CalledProcessError,OSError), e:
             if e.output and "no process found" not in e.output and "not found" not in e.output:
                 AOS.echo_command(remote_command)
                 cprint(e.output,'red')
@@ -350,7 +350,7 @@ class AOS(object):
         imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
         AOS.set_annotation(imageStreams)
         AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
-        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+)", dstNum=3)
+        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+)", dstNum=2)
         #outputs = AOS.run_ssh_command("oc get dc --no-headers -n {}".format(AOS.osProject), ssh=False)
         #AOS.scale_up_pod(outputs)
         #AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas=1",)
