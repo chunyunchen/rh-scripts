@@ -331,15 +331,6 @@ function get_resource_in_a_project {
     oc get $resource -n $project_name| sed -n "/$regexp/p" | awk '{print $1}'
 }
 
-function set_annotation {
-    local is_name="$1"
-    local annotation_name="${2:-openshift.io/image.insecureRepository}"
-    local annotation_value="${3:-true}"
-    oc patch imagestreams $is_name  -p ''{\"metadata\":{\"annotations\":{\"$annotation_name\":\"$annotation_value\"}}}''
-    oc import-image $is_name
-}
-
-SA_metrics_deployer="https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics-deployer-setup.yaml"
 HCH_stack="https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics.yaml"
 #Image_prefix="openshift/origin-"
 Image_prefix="rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/"
@@ -347,6 +338,15 @@ Image_prefix="rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/"
 #Image_prefix="registry.access.redhat.com/openshift3/"
 Image_version="latest"
 Use_pv=false
+
+function set_annotation {
+    local is_name="$1"
+    local annotation_name="${2:-openshift.io/image.insecureRepository}"
+    local annotation_value="${3:-true}"
+    oc patch imagestreams $is_name  -p ''{\"metadata\":{\"annotations\":{\"$annotation_name\":\"$annotation_value\"}}}''
+    oc tag --source=docker ${Image_prefix}${is_name} ${is_name}:${Image_version}
+    oc import-image $is_name
+}
 
 # hch = hawkular, cassanda & heapster, they are Mertrics part
 function up_hch_stack {
