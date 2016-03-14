@@ -1,0 +1,16 @@
+chain-build database-1-dx3h3
+chain-build frontend-sti-2-9pcx7
+chain-build frontend-sti-2-n5fau
+chain-build python-sample-build-sti-1-build
+chain-build python-sample-build-sti-2-build
+default docker-registry-1-dezcc
+default router-1-2w98r
+xiazhao hawkular-cassandra-1-fxli7
+xiazhao hawkular-metrics-h4vx5
+xiazhao heapster-r22kp
+xiazhao logging-deployer-r5jzz
+xiazhao logging-es-uuwfhhmt-1-5q4z3
+xiazhao logging-fluentd-nchz0
+xiazhao logging-kibana-1-kk4wa
+xiazhao metrics-deployer-5u214
+xiazhao testrc-zisxo
