@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 import os, sys, re, time
+import signal
 import pipes
 from subprocess import check_call,check_output,CalledProcessError,STDOUT
 from ConfigParser import SafeConfigParser
@@ -24,6 +25,11 @@ except ImportError:
        cprint = print
 
 config = SafeConfigParser()
+
+def signal_handler(signal, frame):
+    cprint('\nStopped by Ctrl+C!','red')
+    sys.exit(1)
+
 class AOS(object):
     '''Make easier for OpenShift tests!'''
 
@@ -82,9 +88,9 @@ class AOS(object):
         config.set('image','elastic_ram','1024M')
         config.set('image','elastic_cluster_size','1')
         config.set('image','efk_deployer','https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployment/deployer.yaml')
-        if not os.path.isfile(AOS.osConfig):
-           with open(AOS.osConfig, 'wb') as defaultconfig:
-               config.write(defaultconfig)
+
+        with open(AOS.osConfig, 'wb') as defaultconfig:
+           config.write(defaultconfig)
 
     @staticmethod
     def get_config(args):
@@ -162,8 +168,11 @@ class AOS(object):
     @classmethod
     def check_validation(cls,args):
         cprint("Checking confiures...",'blue')
-        AOS.generate_default_config()
+        if not os.path.isfile(AOS.osConfig):
+            AOS.generate_default_config()
+
         AOS.get_config(args)
+
         notification_items = []
         if not AOS.master:
             notification_items.append("[master].master")
@@ -350,7 +359,7 @@ class AOS(object):
         imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
         AOS.set_annotation(imageStreams)
         AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
-        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+)", dstNum=2)
+        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+)", dstNum=3)
         #outputs = AOS.run_ssh_command("oc get dc --no-headers -n {}".format(AOS.osProject), ssh=False)
         #AOS.scale_up_pod(outputs)
         #AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas=1",)
@@ -463,5 +472,7 @@ class AOS(object):
         return args
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGINT, signal_handler)
+
     args = AOS.args_handler() 
     args.subcommand()

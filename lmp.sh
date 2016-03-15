@@ -12,7 +12,7 @@ export TIMEFORMAT="%E %U %S"
 OS_MASTER=""
 MASTER_CONFIG="/etc/origin/master/master-config.yaml"
 SUBDOMAIN=""
-OS_USER="chunchen"
+OS_USER="xiazhao@redhat.com"
 OS_PASSWD="redhat"
 CURRENT_USER_TOKEN=""
 MASTER_USER="root"
@@ -331,15 +331,6 @@ function get_resource_in_a_project {
     oc get $resource -n $project_name| sed -n "/$regexp/p" | awk '{print $1}'
 }
 
-function set_annotation {
-    local is_name="$1"
-    local annotation_name="${2:-openshift.io/image.insecureRepository}"
-    local annotation_value="${3:-true}"
-    oc patch imagestreams $is_name  -p ''{\"metadata\":{\"annotations\":{\"$annotation_name\":\"$annotation_value\"}}}''
-    oc import-image $is_name
-}
-
-SA_metrics_deployer="https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics-deployer-setup.yaml"
 HCH_stack="https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics.yaml"
 #Image_prefix="openshift/origin-"
 Image_prefix="rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/"
@@ -347,6 +338,15 @@ Image_prefix="rcm-img-docker01.build.eng.bos.redhat.com:5001/openshift3/"
 #Image_prefix="registry.access.redhat.com/openshift3/"
 Image_version="latest"
 Use_pv=false
+
+function set_annotation {
+    local is_name="$1"
+    local annotation_name="${2:-openshift.io/image.insecureRepository}"
+    local annotation_value="${3:-true}"
+    oc patch imagestreams $is_name  -p ''{\"metadata\":{\"annotations\":{\"$annotation_name\":\"$annotation_value\"}}}''
+    oc tag --source=docker ${Image_prefix}${is_name} ${is_name}:${Image_version}
+    oc import-image $is_name
+}
 
 # hch = hawkular, cassanda & heapster, they are Mertrics part
 function up_hch_stack {
@@ -432,6 +432,8 @@ function get_token_for_current_user {
 function get_container_name_in_pod {
     local pod_name=$1
     local project_name=${2:-$PROJECT}
+    echo "7777"
+    echo "oc describe pods $pod_name -n $project_name "
     oc describe pods $pod_name -n $project_name |sed -n '/Container ID/{g;1!p;};h' | sed 's/\( \|:\)//g'
 }
 
@@ -440,6 +442,7 @@ function check_metrics_or_logs {
     local project_name=${2:-$PROJECT}
     local pod_name=$3
     local pod_num=$(get_resource_num "\(Running\|Completed\)" "pods --all-namespaces")
+    echo "6666"
     if [ "$catalog" == "efk" ];
     then
         for container_name in $(get_container_name_in_pod $pod_name $project_name):
@@ -464,6 +467,7 @@ function inspect_pods {
     cat /dev/null > .allmetrics
     if [ "$project_name" == "allprojects" ];
     then
+        echo "111"
         get_resource_in_all_projects "pods" "\(Running\|Completed\)" > allpods.txt
         while read LINE
         do
