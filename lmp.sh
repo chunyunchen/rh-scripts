@@ -749,9 +749,37 @@ function main {
         "docker")
             echo -e "sed -i '/OPTIONS/a OPTIONS=\"--confirm-def-push=false\"' /etc/sysconfig/docker\nservice docker restart"
             ;;
+        "ctrl")
+            admission_controller
+            ;;
         *) usage
             ;;
     esac
+}
+
+function admission_controller
+{
+echo -n "kubernetesMasterConfig:
+  admissionConfig:
+    pluginOrderOverride:
+    - NamespaceLifecycle
+    - OriginPodNodeEnvironment
+    - LimitRanger
+    - ServiceAccount
+    - SecurityContextConstraint
+    - ResourceQuota
+    - SCCExecRestrictions
+    - InitialResources
+    pluginConfig:
+      InitialResources:
+        configuration:
+          apiVersion: v1
+          kind: InitialResourcesConfig
+
+oc new-app --docker-image=fabric8/apiman:2.2.94
+oc new-app --docker-image=fabric8/apiman-gateway:2.2.94
+oc new-app --docker-image=fabric8/elasticsearch-k8s:2.2.1
+"
 }
 
 main $*
