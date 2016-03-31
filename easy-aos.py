@@ -336,9 +336,9 @@ class AOS(object):
 
     @classmethod
     def start_logging_stack(cls):
+        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         AOS.login_server()
         cprint("Start deploying logging stack pods...",'blue')
-        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         AOS.clean_logging_objects()
         AOS.run_ssh_command("oc secrets new logging-deployer nothing=/dev/null",ssh=False)
         AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -',\
