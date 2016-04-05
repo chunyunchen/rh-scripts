@@ -361,7 +361,7 @@ class AOS(object):
         AOS.set_annotation(imageStreams)
         AOS.run_ssh_command("oc label node --all logging-infra-fluentd=true", ssh=False)
         AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
-        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator-\w+)", dstNum=5)
+        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator-\w+)", dstNum=4)
         #outputs = AOS.run_ssh_command("oc get dc --no-headers -n {}".format(AOS.osProject), ssh=False)
         #AOS.scale_up_pod(outputs)
         #AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas=1",)
@@ -424,7 +424,7 @@ class AOS(object):
         cmd = "export CURL_CA_BUNDLE=/etc/origin/master/ca.crt; \
                   chmod a+rwX /etc/origin/master/admin.kubeconfig; \
                   chmod +r /etc/origin/master/openshift-registry.kubeconfig; \
-                  oadm registry --create --credentials=/etc/origin/master/openshift-registry.kubeconfig --config=/etc/origin/master/admin.kubeconfig; \
+                  oadm registry -n default --config=/etc/origin/master/admin.kubeconfig; \
                   oadm  router --credentials=/etc/origin/master/openshift-router.kubeconfig --config=/etc/origin/master/admin.kubeconfig --service-account=default"
         AOS.run_ssh_command(cmd)
 
