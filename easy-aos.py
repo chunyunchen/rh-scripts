@@ -362,7 +362,7 @@ class AOS(object):
         AOS.set_annotation(imageStreams)
         AOS.run_ssh_command("oc label node --all logging-infra-fluentd=true --overwrite", ssh=False)
         AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
-        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator-\w+)", dstNum=4)
+        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator-\w+)", dstNum=3)
         #outputs = AOS.run_ssh_command("oc get dc --no-headers -n {}".format(AOS.osProject), ssh=False)
         #AOS.scale_up_pod(outputs)
         #AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas=1",)
