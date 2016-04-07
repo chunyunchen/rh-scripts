@@ -601,7 +601,7 @@ function build_camel_docker_image {
     $SSH "$SUDO yum install -y maven &&\
           git clone https://github.com/fabric8io/ipaas-quickstarts.git &&\
           cd ipaas-quickstarts/quickstart/cdi/camel &&\
-          mvn clean install docker:build && "
+          mvn clean install docker:build "
     local tag=$($SSH "docker images|grep camel | head -1 | awk '{print $2}'")
     local target_image="chunyunchen/cdi-camel:$tag"
     local source_image="fabric8/cdi-camel:$tag"
@@ -757,8 +757,7 @@ function main {
     esac
 }
 
-function admission_controller
-{
+function admission_controller {
 echo -n "kubernetesMasterConfig:
   admissionConfig:
     pluginOrderOverride:

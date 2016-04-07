@@ -368,7 +368,8 @@ class AOS(object):
         AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator-\w+)", dstNum=3)
         #outputs = AOS.run_ssh_command("oc get dc --no-headers -n {}".format(AOS.osProject), ssh=False)
         #AOS.scale_up_pod(outputs)
-        #AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas=1",)
+        AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas=1", ssh=False)
+        AOS.run_ssh_command("oc scale rc/logging-fluentd-1 --replicas=1", ssh=False)
         cprint("Success!","green")
 
     @classmethod
