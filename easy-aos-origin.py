@@ -306,8 +306,8 @@ class AOS(object):
         isList = [x.split()[0] for x in imageStreams.strip().split('\n')]
         for osIS in isList:
             AOS.run_ssh_command('oc patch imagestreams {}  -p {}'.format(osIS, pipes.quote('{"metadata":{"annotations":{"openshift.io/image.insecureRepository":"true"}}}')), ssh=False)
-            AOS.run_ssh_command('oc tag --source=docker {}{} {}:{}'.format(AOS.imagePrefix, osIS, osIS, AOS.imageVersion), ssh=False)
-            AOS.run_ssh_command('oc import-image {} --insecure=true'.format(osIS), ssh=False)
+      #      AOS.run_ssh_command('oc tag --source=docker {}{} {}:{}'.format(AOS.imagePrefix, osIS, osIS, AOS.imageVersion), ssh=False)
+            AOS.run_ssh_command('oc import-image {}:{} --insecure=true'.format(osIS, AOS.imageVersion), ssh=False)
             time.sleep(5)
 
     @classmethod

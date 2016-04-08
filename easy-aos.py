@@ -306,8 +306,8 @@ class AOS(object):
         isList = [x.split()[0] for x in imageStreams.strip().split('\n')]
         for osIS in isList:
             AOS.run_ssh_command('oc patch imagestreams {}  -p {}'.format(osIS, pipes.quote('{"metadata":{"annotations":{"openshift.io/image.insecureRepository":"true"}}}')), ssh=False)
-            AOS.run_ssh_command('oc tag --source=docker {}{} {}:{}'.format(AOS.imagePrefix, osIS, osIS, AOS.imageVersion), ssh=False)
-            AOS.run_ssh_command('oc import-image {} --insecure=true'.format(osIS), ssh=False)
+#            AOS.run_ssh_command('oc tag --source=docker {}{} {}:{}'.format(AOS.imagePrefix, osIS, osIS, AOS.imageVersion), ssh=False)
+            AOS.run_ssh_command('oc import-image {}:{} --insecure=true'.format(osIS, AOS.imageVersion), ssh=False)
             time.sleep(5)
 
     @classmethod
@@ -367,6 +367,7 @@ class AOS(object):
         #AOS.scale_up_pod(outputs)
         AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas=1", ssh=False)
         AOS.run_ssh_command("oc scale rc/logging-fluentd-1 --replicas=1", ssh=False)
+#        AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[logging-es|logging-fluentd|logging-kibana].*Running.*")
         cprint("Success!","green")
 
     @classmethod
