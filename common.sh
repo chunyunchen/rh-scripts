@@ -14,3 +14,5 @@ function set_bash {
     [ "$aliasos" ] && sed -i "/$bash_name/c alias $bash_name=\"$bash_cli\"" $bash_file
     echo -e "Run \033[31;49;1msource $bash_file\033[39;49;0m , then can login master host via command: \033[32;49;1m$bash_name\033[39;49;0m"
 }
+
+## https://github.com/openshift/openshift-ansible -b openshift-ansible-3.0.72-1
