@@ -59,7 +59,7 @@ class AOS(object):
     osProject=""
     delProject = False
     pullLoggingMetricsImage = False
-    enableLoggingMetricsWebConsole = False
+    #enableLoggingMetricsWebConsole = False
 
     @staticmethod
     def generate_default_config():
@@ -122,7 +122,7 @@ class AOS(object):
                             'p': 'osProject',
                             'd': 'delProject',
                             'pull': 'pullLoggingMetricsImage',
-                            'web': 'enableLoggingMetricsWebConsole',
+#                            'web': 'enableLoggingMetricsWebConsole',
                             'prefix': 'imagePrefix',
                             'mtag': 'imageVersion'
                            }
@@ -306,9 +306,30 @@ class AOS(object):
         isList = [x.split()[0] for x in imageStreams.strip().split('\n')]
         for osIS in isList:
             AOS.run_ssh_command('oc patch imagestreams {}  -p {}'.format(osIS, pipes.quote('{"metadata":{"annotations":{"openshift.io/image.insecureRepository":"true"}}}')), ssh=False)
-#            AOS.run_ssh_command('oc tag --source=docker {}{} {}:{}'.format(AOS.imagePrefix, osIS, osIS, AOS.imageVersion), ssh=False)
+            AOS.run_ssh_command('oc tag --source=docker {}{} {}:{}'.format(AOS.imagePrefix, osIS, osIS, AOS.imageVersion), ssh=False)
             AOS.run_ssh_command('oc import-image {}:{} --insecure=true'.format(osIS, AOS.imageVersion), ssh=False)
             time.sleep(5)
+
+    @classmethod
+    def add_weburl_for_logging_and_metrics(cls):
+        masterConfig = os.path.join(AOS.masterConfigRoot, AOS.masterConfigFile)
+        subdomain = AOS.get_subdomain()
+        #add_weburl_cmd = "sed -i -e '/loggingPublicURL:/d' -e '/metricsPublicURL:/d' -e '/publicURL:/a\  loggingPublicURL: https://{kibana_ops_appname}.{sub_domain}' -e '/publicURL:/a\  loggingPublicURL: https://{kibana_appname}.{sub_domain}' -e '/publicURL:/a\  metricsPublicURL: https://{hawkular_metrics_appname}.{sub_domain}/hawkular/metrics' {master_config}".format(kibana_ops_appname=AOS.kibanaOpsAppname, sub_domain=subdomain, kibana_appname=AOS.kibanaAppname, hawkular_metrics_appname=AOS.hawkularMetricsAppname, master_config=masterConfig)
+        add_weburl_cmd = "sed -i -e '/loggingPublicURL:/d' -e '/metricsPublicURL:/d' -e '/publicURL:/a\  loggingPublicURL: https://{kibana_appname}.{sub_domain}' -e '/publicURL:/a\  metricsPublicURL: https://{hawkular_metrics_appname}.{sub_domain}/hawkular/metrics' {master_config}".format(kibana_ops_appname=AOS.kibanaOpsAppname, sub_domain=subdomain, kibana_appname=AOS.kibanaAppname, hawkular_metrics_appname=AOS.hawkularMetricsAppname, master_config=masterConfig)
+        AOS.run_ssh_command(add_weburl_cmd)
+
+    @classmethod
+    def restart_master_server(cls):
+        master_server_name = AOS.run_ssh_command("systemctl list-unit-files|grep atomic-openshift-master | awk '{print $1}'")
+        if master_server_name:
+           AOS.run_ssh_command("systemctl restart {}".format(master_server_name))
+        else:
+           cprint("Failed to restart master server due to not found master service",'red')
+  
+    @classmethod
+    def enable_logging_metircs_web_console(cls):
+        AOS.add_weburl_for_logging_and_metrics()
+        AOS.restart_master_server()
 
     @classmethod
     def start_metrics_stack(cls):
@@ -336,8 +357,8 @@ class AOS(object):
 
     @classmethod
     def start_logging_stack(cls):
-        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         AOS.login_server()
+        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         cprint("Start deploying logging stack pods...",'blue')
         AOS.clean_logging_objects()
         AOS.run_ssh_command("oc secrets new logging-deployer nothing=/dev/null",ssh=False)
@@ -443,8 +464,8 @@ class AOS(object):
         subCommonArgs.add_argument('-p', help="Specify OpenShift project")
         subCommonArgs.add_argument('-d', action="store_true",\
                                          help="Delete OpenShift project and Re-create. Default is False")
-        subCommonArgs.add_argument('--web', action="store_true",\
-                                         help="Add public URL to master config file for accessing metrics and logging via web console.Default is False.[Not implemented]")
+    #    subCommonArgs.add_argument('--web', action="store_true",\
+    #                                     help="Add public URL to master config file for accessing metrics and logging via web console.Default is False.[Not implemented]")
         subCommonArgs.add_argument('--prefix',help="Image prefix, eg:brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888/openshift3/")
         subCommonArgs.add_argument('--mtag',help="Image tag, eg: latest")
     
@@ -453,8 +474,8 @@ class AOS(object):
     
         # Sub-command for starting OpenShift server
         startos = subCommands.add_parser('startos', parents=[commonArgs],\
-                                                    description="Start OpenShift server",\
-                                                    help="start OpenShift service")
+                                                    description="Start OpenShift origin server",\
+                                                    help="start OpenShift origin server")
         startos.add_argument('--pull', action="store_true",\
                                        help="Docker pull the metrics and logging related images from DockerHub.Default is False")
         startos.set_defaults(subcommand=AOS.start_origin_openshift)
@@ -470,6 +491,12 @@ class AOS(object):
                                                     description="Deploy logging stack pods",\
                                                     help="Deploy logging stack pods")
         logging.set_defaults(subcommand=AOS.start_logging_stack)
+
+        # Enable logging and metrics view in OpenShift console
+        logging = subCommands.add_parser('webconsole', parents=[commonArgs],\
+                                                    description="Enable logging and metrics view in OpenShift console",\
+                                                    help="Enable logging and metrics view in OpenShift console")
+        logging.set_defaults(subcommand=AOS.enable_logging_metircs_web_console)
     
         args = commands.parse_args()
         AOS.check_validation(args)
