@@ -243,9 +243,12 @@ class AOS(object):
         iloop = 50
         interval = 6
         timeout = iloop * interval
-        while dstNum != len(re.findall(reStr,AOS.run_ssh_command(cmd,ssh=enableSsh))) and 0 < iloop:
+        output = ""
+        while dstNum != len(re.findall(reStr,output)) and 0 < iloop:
             time.sleep(interval)
             iloop -= 1
+            output = AOS.run_ssh_command(cmd,ssh=enableSsh)
+            cprint(output)
 
         if iloop == 0:
             cprint("Operation is not finished, timeout {} seconds".format(timeout),'yellow')
@@ -361,16 +364,16 @@ class AOS(object):
                                                                                           size=AOS.ESClusterSize,version=AOS.imageVersion)
         AOS.run_ssh_command(cmd,ssh=False)
         AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-deployer.+Completed", dstNum=1)
-        AOS.run_ssh_command("oc process logging-support-template -n {project} -v IMAGE_VERSION={version}| oc create -n {project} -f -".format(project=AOS.osProject,version=AOS.imageVersion), ssh=False)
-        imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
-        AOS.set_annotation(imageStreams)
+        #AOS.run_ssh_command("oc process logging-support-template -n {project} -v IMAGE_VERSION={version}| oc create -n {project} -f -".format(project=AOS.osProject,version=AOS.imageVersion), ssh=False)
+        #imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
+        #AOS.set_annotation(imageStreams)
         AOS.run_ssh_command("oc label node --all logging-infra-fluentd=true --overwrite", ssh=False)
         AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
         AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator-\w+)", dstNum=3)
         #outputs = AOS.run_ssh_command("oc get dc --no-headers -n {}".format(AOS.osProject), ssh=False)
         #AOS.scale_up_pod(outputs)
-        AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas=1", ssh=False)
-        AOS.run_ssh_command("oc scale rc/logging-fluentd-1 --replicas=1", ssh=False)
+        #AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas=1", ssh=False)
+        #AOS.run_ssh_command("oc scale rc/logging-fluentd-1 --replicas=1", ssh=False)
         cprint("Success!","green")
 
     @classmethod
