@@ -306,8 +306,9 @@ class AOS(object):
         isList = [x.split()[0] for x in imageStreams.strip().split('\n')]
         for osIS in isList:
             AOS.run_ssh_command('oc patch imagestreams {}  -p {}'.format(osIS, pipes.quote('{"metadata":{"annotations":{"openshift.io/image.insecureRepository":"true"}}}')), ssh=False)
-      #      AOS.run_ssh_command('oc tag --source=docker {}{} {}:{}'.format(AOS.imagePrefix, osIS, osIS, AOS.imageVersion), ssh=False)
-            AOS.run_ssh_command('oc import-image {}:{} --insecure=true'.format(osIS, AOS.imageVersion), ssh=False)
+            AOS.run_ssh_command('oc import-image {imgstream}:{version} --from={imgpre}{imgstream}:{version} --insecure=true'.format(imgstream=osIS, version=AOS.imageVersion, imgpre=AOS.imagePrefix), ssh=False)
+            #AOS.run_ssh_command('oc tag --source=docker {}{}:{} {}:{}'.format(AOS.imagePrefix, osIS, AOS.imageVersion, osIS, AOS.imageVersion), ssh=False)
+            #AOS.run_ssh_command('oc import-image {imgpre}{imgstream}:{version} --insecure=true --confirm'.format(imgstream=osIS, version=AOS.imageVersion, imgpre=AOS.imagePrefix), ssh=False)
             time.sleep(5)
 
     @classmethod
@@ -353,11 +354,11 @@ class AOS(object):
 #        AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
         AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
         subdomain = AOS.get_subdomain()
-        cmd = "oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=false,IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},KIBANA_OPS_HOSTNAME={opsName}.{subdomain},PUBLIC_MASTER_URL=https://{master}:8443,ES_INSTANCE_RAM={ram},ES_CLUSTER_SIZE={size},IMAGE_VERSION={version},MASTER_URL=https://{master}:8443,PROJECT={project}|oc create -f -"\
+        cmd = "oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=false,IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},KIBANA_OPS_HOSTNAME={opsName}.{subdomain},PUBLIC_MASTER_URL=https://{master}:8443,ES_INSTANCE_RAM={ram},ES_CLUSTER_SIZE={size},IMAGE_VERSION={version},MASTER_URL=https://{master}:8443|oc create -f -"\
                                                                                          .format(prefix=AOS.imagePrefix,kName=AOS.kibanaAppname,\
                                                                                           subdomain=subdomain,opsName=AOS.kibanaOpsAppname,
                                                                                           master=AOS.master,ram=AOS.ESRam,\
-                                                                                          size=AOS.ESClusterSize,version=AOS.imageVersion,project=AOS.osProject)
+                                                                                          size=AOS.ESClusterSize,version=AOS.imageVersion)
         AOS.run_ssh_command(cmd,ssh=False)
         AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-deployer.+Completed", dstNum=1)
         AOS.run_ssh_command("oc process logging-support-template -n {project} -v IMAGE_VERSION={version}| oc create -n {project} -f -".format(project=AOS.osProject,version=AOS.imageVersion), ssh=False)
