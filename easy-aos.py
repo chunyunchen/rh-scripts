@@ -50,6 +50,7 @@ class AOS(object):
     imagePrefix=""
     imageVersion=""
     enablePV=""
+    enableKibanaOps = False
     ESRam=""
     ESClusterSize=1
     EFKDeployer=""
@@ -85,6 +86,7 @@ class AOS(object):
         config.set('image','image_prefix','brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888/openshift3/')
         config.set('image','image_version','latest')
         config.set('image','enable_pv','false')
+        config.set("image", 'enable_kibana_ops','false')
         config.set('image','elastic_ram','1024M')
         config.set('image','elastic_cluster_size','1')
         config.set('image','efk_deployer','https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployment/deployer.yaml')
@@ -111,6 +113,7 @@ class AOS(object):
         AOS.imagePrefix = config.get("image","image_prefix")
         AOS.imageVersion = config.get("image","image_version")
         AOS.enablePV = config.get("image","enable_pv")
+        AOS.enableKibanaOps = config.get("image", "enable_kibana_ops")
         AOS.ESRam = config.get("image","elastic_ram")
         AOS.ESClusterSize = config.get("image","elastic_cluster_size")
         AOS.EFKDeployer = config.get("image","efk_deployer")
@@ -372,8 +375,8 @@ class AOS(object):
 #        AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
         AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
         subdomain = AOS.get_subdomain()
-        cmd = "oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=false,IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},KIBANA_OPS_HOSTNAME={opsName}.{subdomain},PUBLIC_MASTER_URL=https://{master}:8443,ES_INSTANCE_RAM={ram},ES_CLUSTER_SIZE={size},IMAGE_VERSION={version},MASTER_URL=https://{master}:8443|oc create -f -"\
-                                                                                         .format(prefix=AOS.imagePrefix,kName=AOS.kibanaAppname,\
+        cmd = "oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER={enable},IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},KIBANA_OPS_HOSTNAME={opsName}.{subdomain},PUBLIC_MASTER_URL=https://{master}:8443,ES_INSTANCE_RAM={ram},ES_CLUSTER_SIZE={size},IMAGE_VERSION={version},MASTER_URL=https://{master}:8443|oc create -f -"\
+                                                                                         .format(enable=AOS.enableKibanaOps,prefix=AOS.imagePrefix,kName=AOS.kibanaAppname,\
                                                                                           subdomain=subdomain,opsName=AOS.kibanaOpsAppname,
                                                                                           master=AOS.master,ram=AOS.ESRam,\
                                                                                           size=AOS.ESClusterSize,version=AOS.imageVersion)
