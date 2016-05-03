@@ -398,8 +398,10 @@ class AOS(object):
     @classmethod
     def start_origin_openshift(cls):
         cprint("Starting OpenShift Service...","blue")
-        outputs = AOS.run_ssh_command("openshift start --public-master=%s:8443 --write-config=/etc/origin" % AOS.master)
-        nodeConfigPath = outputs.rstrip().split()[-1]
+        AOS.run_ssh_command("openshift start --public-master=%s:8443 --write-config=/etc/origin" % AOS.master)
+       # nodeConfigPath = outputs.rstrip().split()[-1]
+        outputs = AOS.run_ssh_command("hostname")
+        nodeConfigPath = '/etc/origin/node-' + outputs.strip()
         nodeConfig = os.path.join(nodeConfigPath,"node-config.yaml")
         masterConfig = os.path.join(AOS.masterConfigRoot, AOS.masterConfigFile)
         kubeConfig = os.path.join(AOS.masterConfigRoot, AOS.kubeConfigFile)
