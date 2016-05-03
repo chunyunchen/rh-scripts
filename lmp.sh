@@ -614,11 +614,11 @@ function build_camel_docker_image {
     local name=`echo "$tag1" | awk '{print $1}' |awk -F/ '{print $2}'`
     local target_image="chunyunchen/$name:$tag"
     local source_image="fabric8/$name:$tag"
-    echo "docker tag $source_image $target_image && docker push $target_image"
-    $SSH "docker tag $source_image $target_image && docker push $target_image"
-    done
+    echo "docker tag -f $source_image $target_image && docker push $target_image"
+    $SSH "docker tag -f $source_image $target_image && docker push $target_image"
     echo "oc new-app --docker-image=$target_image$ ##To create app"
     echo "${red_prefix}Note:$color_suffix Need add *${green_prefix}name: jolokia${color_suffix}* to DC(yaml format) under ${green_prefix}spec.containers.ports${color_suffix}"
+    done
 }
 
 # For testing JVM console related
