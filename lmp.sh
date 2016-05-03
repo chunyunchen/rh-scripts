@@ -598,14 +598,25 @@ function show_is_fis_java_openshift {
 }
 
 function build_camel_docker_image {
-    $SSH "$SUDO yum install -y maven &&\
-          git clone https://github.com/fabric8io/ipaas-quickstarts.git &&\
-          cd ipaas-quickstarts/quickstart/cdi/camel &&\
-          mvn clean install docker:build "
-    local tag=$($SSH "docker images|grep camel | head -1 | awk '{print $2}'")
-    local target_image="chunyunchen/cdi-camel:$tag"
-    local source_image="fabric8/cdi-camel:$tag"
+    source ~/scripts/common.sh
+    #jdk8_path=`$SSH "$SUDO rpm -qa|grep openjdk |grep 1.8|head -1"`
+    #$SSH "$SUDO yum install -y maven java-1.8.0-openjdk-devel.x86_64 &&\
+    #      rm -f /etc/alternatives/java_sdk &&\
+    #      ln -s /usr/lib/jvm/$jdk8_path /etc/alternatives/java_sdk &&\
+    #      git clone https://github.com/fabric8io/ipaas-quickstarts.git"
+
+    for img_type in java/mainclass java/camel-spring karaf/camel-amq/
+    do
+    $SSH  "cd ipaas-quickstarts/quickstart/$img_type &&\
+          mvn clean install docker:build"
+    local tag1=`$SSH "docker images|grep camel | head -1 | awk '{print $2}'"`
+    local tag=`echo "$tag1" | awk '{print $2}'`
+    local name=`echo "$tag1" | awk '{print $1}' |awk -F/ '{print $2}'`
+    local target_image="chunyunchen/$name:$tag"
+    local source_image="fabric8/$name:$tag"
+    echo "docker tag $source_image $target_image && docker push $target_image"
     $SSH "docker tag $source_image $target_image && docker push $target_image"
+    done
     echo "oc new-app --docker-image=$target_image$ ##To create app"
     echo "${red_prefix}Note:$color_suffix Need add *${green_prefix}name: jolokia${color_suffix}* to DC(yaml format) under ${green_prefix}spec.containers.ports${color_suffix}"
 }
