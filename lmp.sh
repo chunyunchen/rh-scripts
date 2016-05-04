@@ -599,11 +599,11 @@ function show_is_fis_java_openshift {
 
 function build_camel_docker_image {
     source ~/scripts/common.sh
-    #jdk8_path=`$SSH "$SUDO rpm -qa|grep openjdk |grep 1.8|head -1"`
-    #$SSH "$SUDO yum install -y maven java-1.8.0-openjdk-devel.x86_64 &&\
-    #      rm -f /etc/alternatives/java_sdk &&\
-    #      ln -s /usr/lib/jvm/$jdk8_path /etc/alternatives/java_sdk &&\
-    #      git clone https://github.com/fabric8io/ipaas-quickstarts.git"
+    jdk8_path=`$SSH "$SUDO rpm -qa|grep openjdk |grep 1.8|head -1"`
+    $SSH "$SUDO yum install -y maven java-1.8.0-openjdk-devel.x86_64 &&\
+          rm -f /etc/alternatives/java_sdk &&\
+          ln -s /usr/lib/jvm/$jdk8_path /etc/alternatives/java_sdk &&\
+          git clone https://github.com/fabric8io/ipaas-quickstarts.git"
 
     for img_type in java/mainclass java/camel-spring karaf/camel-amq/
     do
