@@ -24,6 +24,7 @@ except ImportError:
        print("Note: The default color will be used for output messages.")
        cprint = print
 
+configFile = "./aos.conf"
 config = SafeConfigParser()
 
 def signal_handler(signal, frame):
@@ -33,7 +34,7 @@ def signal_handler(signal, frame):
 class AOS(object):
     '''Make easier for OpenShift tests!'''
 
-    osConfigFile = "./aos.conf"
+    osConfigFile = ""
     osUser=""
     osPasswd=""
     masterUser=""
@@ -60,7 +61,10 @@ class AOS(object):
     osProject=""
     delProject = False
     pullLoggingMetricsImage = False
-    #enableLoggingMetricsWebConsole = False
+
+    def __init__(self,config_file):
+        AOS.osConfigFile = config_file
+        config.read(config_file)
 
     @staticmethod
     def generate_default_config():
@@ -96,16 +100,19 @@ class AOS(object):
 
     @staticmethod
     def show_current_config():
-        config.read(AOS.osConfigFile)
         for section in config.sections():
             items = config.items(section)
             items_with_newline = '\n'.join([' = '.join(item) for item in items])
             cprint('\n['+section+']', 'green')
             cprint(items_with_newline, 'blue')
 
+        if not config.sections():
+           cprint("Configurations not found!","red")
+           cprint("Please check if the file [{}] is in current directory or it is empty!".format(AOS.osConfigFile),"blue")
+           cprint("However, you don't worry the file, it will be created automatically when executing another sub-commands,like 'startos'.","blue")
+
     @staticmethod
     def get_config(args):
-        config.read(AOS.osConfigFile)
         AOS.osUser = config.get("project","os_user")
         AOS.osPasswd = config.get("project","os_passwd")
         AOS.masterUser = config.get("project","master_user")
@@ -525,5 +532,6 @@ class AOS(object):
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
 
-    args = AOS.args_handler() 
+    aos = AOS(configFile)
+    args = aos.args_handler() 
     args.subcommand()
