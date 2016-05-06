@@ -33,7 +33,7 @@ def signal_handler(signal, frame):
 class AOS(object):
     '''Make easier for OpenShift tests!'''
 
-    osConfig = "./aos.conf"
+    osConfigFile = "./aos.conf"
     osUser=""
     osPasswd=""
     masterUser=""
@@ -91,12 +91,21 @@ class AOS(object):
         config.set('image','elastic_cluster_size','1')
         config.set('image','efk_deployer','https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployment/deployer.yaml')
 
-        with open(AOS.osConfig, 'wb') as defaultconfig:
+        with open(AOS.osConfigFile, 'wb') as defaultconfig:
            config.write(defaultconfig)
 
     @staticmethod
+    def show_current_config():
+        config.read(AOS.osConfigFile)
+        for section in config.sections():
+            items = config.items(section)
+            items_with_newline = '\n'.join([' = '.join(item) for item in items])
+            cprint('\n['+section+']', 'green')
+            cprint(items_with_newline, 'blue')
+
+    @staticmethod
     def get_config(args):
-        config.read(AOS.osConfig)
+        config.read(AOS.osConfigFile)
         AOS.osUser = config.get("project","os_user")
         AOS.osPasswd = config.get("project","os_passwd")
         AOS.masterUser = config.get("project","master_user")
@@ -125,7 +134,6 @@ class AOS(object):
                             'p': 'osProject',
                             'd': 'delProject',
                             'pull': 'pullLoggingMetricsImage',
-#                            'web': 'enableLoggingMetricsWebConsole',
                             'prefix': 'imagePrefix',
                             'mtag': 'imageVersion'
                            }
@@ -171,7 +179,7 @@ class AOS(object):
     @classmethod
     def check_validation(cls,args):
         cprint("Checking confiures...",'blue')
-        if not os.path.isfile(AOS.osConfig):
+        if not os.path.isfile(AOS.osConfigFile):
             AOS.generate_default_config()
 
         AOS.get_config(args)
@@ -185,7 +193,7 @@ class AOS(object):
             notification_items.append("[ssh].pem_file")
 
         if 0 < len(notification_items):
-            cprint("Please set below parameter(s) under %s config file:" % os.path.abspath(AOS.osConfig),'green',on_color='on_blue',attrs=['bold'])
+            cprint("Please set below parameter(s) under %s config file:" % os.path.abspath(AOS.osConfigFile),'green',on_color='on_blue',attrs=['bold'])
             cprint('\n'.join(notification_items),'green')
             os.sys.exit()
 
@@ -470,8 +478,6 @@ class AOS(object):
         subCommonArgs.add_argument('-p', help="Specify OpenShift project")
         subCommonArgs.add_argument('-d', action="store_true",\
                                          help="Delete OpenShift project and Re-create. Default is False")
-    #    subCommonArgs.add_argument('--web', action="store_true",\
-    #                                     help="Add public URL to master config file for accessing metrics and logging via web console.Default is False.[Not implemented]")
         subCommonArgs.add_argument('--prefix',help="Image prefix, eg:brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888/openshift3/")
         subCommonArgs.add_argument('--mtag',help="Image tag, eg: latest")
     
@@ -504,8 +510,15 @@ class AOS(object):
                                                     help="Enable logging and metrics view in OpenShift console")
         logging.set_defaults(subcommand=AOS.enable_logging_metircs_web_console)
     
+        # Show current configurations
+        logging = subCommands.add_parser('showcfg', parents=[commonArgs],\
+                                                    description="Show current configurations",\
+                                                    help="Show current configurations")
+        logging.set_defaults(subcommand=AOS.show_current_config)
+
         args = commands.parse_args()
-        AOS.check_validation(args)
+        if not 'show_current_config' == args.subcommand.__name__:
+           AOS.check_validation(args)
      
         return args
 
