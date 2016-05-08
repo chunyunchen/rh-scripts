@@ -1,7 +1,8 @@
 import java.util.ArrayList;
 
-public class SimpleDotCom {
+public class DotCom {
    private ArrayList<String> locationCells;
+   private String name;
 
    public String checkYourself(String userInput) {
       String result = "miss";
@@ -11,14 +12,17 @@ public class SimpleDotCom {
          locationCells.remove(index);
          if (locationCells.isEmpty()) {
             result = "kill";
+            System.out.println("Ouch! You sunk " + name + " :(");
          } else {
            result = "hit";
          }
       }
-      System.out.println(result);
       return result;
    }
 
+   public void setName(String n) {
+      name = n;
+   }
    public void setLocationCells(ArrayList<String> locas) {
       locationCells = locas;
    }
