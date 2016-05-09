@@ -109,7 +109,7 @@ class AOS(object):
         if not config.sections():
            cprint("Configurations not found!","red")
            cprint("Please check if the file [{}] is in current directory or it is empty!".format(AOS.osConfigFile),"blue")
-           cprint("However, you don't worry the file, it will be created automatically when executing another sub-commands,like 'startos'.","blue")
+           cprint("However, you don't worry about the file, it will be created automatically when executing another sub-commands,like 'startos'.","blue")
 
     @staticmethod
     def get_config(args):
