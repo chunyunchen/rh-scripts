@@ -349,6 +349,7 @@ class AOS(object):
     def enable_logging_metircs_web_console(cls):
         AOS.add_weburl_for_logging_and_metrics()
         AOS.restart_master_server()
+        cprint("Success!","green")
 
     @classmethod
     def start_metrics_stack(cls):
