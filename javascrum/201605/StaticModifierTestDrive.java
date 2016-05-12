@@ -6,9 +6,12 @@ class Foo {
 }
 
 class Foo3 {
-   final int x = 32;
-   public void go () {
-      System.out.println(x);
+   int x = 2;
+   final int y = 32;
+   public void go (int x) {
+      this.x = x;
+      System.out.println(this.x);
+      System.out.println(this.y);
    }
 }
 
@@ -44,11 +47,24 @@ class Foo6 {
    }
 }
 
+class Foo66 extends Foo6 {
+   void go2 () {
+      System.out.println(this.getClass());
+   }
+
+}
+
 public class StaticModifierTestDrive {
    public static void main (String [] args) {
       Foo f1 = new Foo();
       f1.go();
       Foo6 f6 = new Foo6();
       f6.go(33);
+      Foo3 f3 = new Foo3();
+      f3.go(233);
+      Foo66 f66 = new Foo66();
+      f66.go2();
+      Foo6 f62 = new Foo6();
+      f62.go(30);
    }
 }
