@@ -441,8 +441,8 @@ class AOS(object):
 
     @staticmethod
     def clone_metrics_and_logging_gitrepos():
-        cprint("Cloning logging/metrics git repos to %s under $HOME dir for building related images..." % AOS.master,'blue')
-        cmd = "git clone https://github.com/openshift/origin-metrics.git; git clone https://github.com/openshift/origin-aggregated-logging.git"
+        cprint("Cloning logging/metrics/apiman git repos to %s under $HOME dir for building related images..." % AOS.master,'blue')
+        cmd = "git clone https://github.com/openshift/origin-metrics.git; git clone https://github.com/openshift/origin-aggregated-logging.git; git clone https://github.com/openshift/origin-apiman.git"
         AOS.run_ssh_command(cmd)
 
     @staticmethod
