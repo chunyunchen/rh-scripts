@@ -391,6 +391,7 @@ class AOS(object):
            AOS.run_ssh_command("pushd origin-apiman && git pull && popd",ssh=False)
         else:
            AOS.run_ssh_command("git clone https://github.com/openshift/origin-apiman.git",ssh=False)
+        AOS.run_ssh_command("oc delete -f https://raw.githubusercontent.com/openshift/origin-apiman/master/deployer/deployer.yaml -n openshift")
     
     @staticmethod
     def get_inner_registry_svcIPPort():
@@ -412,8 +413,8 @@ class AOS(object):
         AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:apiman-console" % AOS.osProject)
         AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:apiman-gateway" % AOS.osProject)
         subdomain = AOS.get_subdomain()
-        AOS.run_ssh_command("oc new-app apiman-deployer-template -v GATEWAY_HOSTNAME=gateway.{subdm},CONSOLE_HOSTNAME=console.{subdm},MASTER_URL=https://{osdm}:8443,ES_CLUSTER_SIZE=1,IMAGE_PREFIX={imgpre}".format(subdm=subdomain,osdm=AOS.master,imgpre=imagePrefix), ssh=False)
-        AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[apiman-console|apiman-curator|apiman-es|apiman-gateway].*Running.*", 4)
+        AOS.run_ssh_command("oc new-app apiman-deployer-template -p GATEWAY_HOSTNAME=gateway.{subdm},CONSOLE_HOSTNAME=console.{subdm},PUBLIC_MASTER_URL=https://{osdm}:8443,ES_CLUSTER_SIZE=1,IMAGE_PREFIX={imgpre}".format(subdm=subdomain,osdm=AOS.master,imgpre=imagePrefix), ssh=False)
+        AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r"[apiman\-console|apiman\-curator|apiman\-es|apiman\-gateway].*Running.*", 4)
         cprint("Success!","green")
 
     @classmethod
