@@ -59,7 +59,6 @@ class AOS(object):
     osProject=""
     delProject = False
     pullLoggingMetricsImage = False
-    enableLoggingMetricsWebConsole = False
 
     @staticmethod
     def generate_default_config():
@@ -131,7 +130,6 @@ class AOS(object):
                             'p': 'osProject',
                             'd': 'delProject',
                             'pull': 'pullLoggingMetricsImage',
-                            'web': 'enableLoggingMetricsWebConsole',
                             'prefix': 'imagePrefix',
                             'mtag': 'imageVersion'
                            }
@@ -416,6 +414,7 @@ class AOS(object):
         AOS.run_ssh_command("oc new-app apiman-deployer-template -p GATEWAY_HOSTNAME=gateway.{subdm},CONSOLE_HOSTNAME=console.{subdm},PUBLIC_MASTER_URL=https://{osdm}:8443,ES_CLUSTER_SIZE=1,IMAGE_PREFIX={imgpre}".format(subdm=subdomain,osdm=AOS.master,imgpre=imagePrefix), ssh=False)
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r"[apiman\-console|apiman\-curator|apiman\-es|apiman\-gateway].*Running.*", 4)
         cprint("Success!","green")
+        cprint("Access APIMan Console via browser: ~/link.html", "green")
 
     @classmethod
     def start_origin_openshift(cls):
@@ -492,8 +491,6 @@ class AOS(object):
         subCommonArgs.add_argument('-p', help="Specify OpenShift project")
         subCommonArgs.add_argument('-d', action="store_true",\
                                          help="Delete OpenShift project and Re-create. Default is False")
-        subCommonArgs.add_argument('--web', action="store_true",\
-                                         help="Add public URL to master config file for accessing metrics and logging via web console.Default is False.[Not implemented]")
         subCommonArgs.add_argument('--prefix',help="Image prefix, eg:brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888/openshift3/")
         subCommonArgs.add_argument('--mtag',help="Image tag, eg: latest")
     

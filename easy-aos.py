@@ -411,6 +411,39 @@ class AOS(object):
 #        AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[logging-es|logging-fluentd|logging-kibana].*Running.*")
         cprint("Success!","green")
 
+    @staticmethod
+    def clone_apiman_gitrepo():
+        if os.path.exists("./origin-apiman"):
+           AOS.run_ssh_command("pushd origin-apiman && git pull && popd",ssh=False)
+        else:
+           AOS.run_ssh_command("git clone https://github.com/openshift/origin-apiman.git",ssh=False)
+        AOS.run_ssh_command("oc delete -f https://raw.githubusercontent.com/openshift/origin-apiman/master/deployer/deployer.yaml -n openshift")
+
+    @staticmethod
+    def get_inner_registry_svcIPPort():
+        # 172.30.20.237:5000
+        registryIpPort = AOS.run_ssh_command('oc get svc docker-registry --template="{{.spec.portalIP}}:{{ with index .spec.ports 0 }}{{ .port }}{{end}}"')
+        return registryIpPort+"/apiman/"
+
+    @classmethod
+    def start_apiman_stack(cls):
+        AOS.clone_apiman_gitrepo()
+        AOS.login_server()
+        cprint("starting APIMan stack...",'blue')
+        imagePrefix = AOS.get_inner_registry_svcIPPort()
+        AOS.run_ssh_command("oc new-app -f origin-apiman/hack/dev-builds.yaml", ssh=False)
+        AOS.run_ssh_command("oc create -n openshift -f https://raw.githubusercontent.com/openshift/origin-apiman/master/deployer/deployer.yaml")
+        AOS.run_ssh_command("oc secrets new apiman-deployer nothing=/dev/null", ssh=False)
+        AOS.run_ssh_command("oc new-app apiman-deployer-account-template", ssh=False)
+        AOS.do_permission("add-role-to-user", "edit", user="--serviceaccount apiman-deployer")
+        AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:apiman-console" % AOS.osProject)
+        AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:apiman-gateway" % AOS.osProject)
+        subdomain = AOS.get_subdomain()
+        AOS.run_ssh_command("oc new-app apiman-deployer-template -p GATEWAY_HOSTNAME=gateway.{subdm},CONSOLE_HOSTNAME=console.{subdm},PUBLIC_MASTER_URL=https://{osdm}:8443,ES_CLUSTER_SIZE=1,IMAGE_PREFIX={imgpre}".format(subdm=subdomain,osdm=AOS.master,imgpre=imagePrefix), ssh=False)
+        AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r"[apiman\-console|apiman\-curator|apiman\-es|apiman\-gateway].*Running.*", 4)
+        cprint("Success!","green")
+        cprint("Access APIMan Console via browser: ~/link.html", "green")
+
     @classmethod
     def start_origin_openshift(cls):
         cprint("Starting OpenShift Service...","blue")
@@ -511,6 +544,12 @@ class AOS(object):
                                                     description="Deploy logging stack pods",\
                                                     help="Deploy logging stack pods")
         logging.set_defaults(subcommand=AOS.start_logging_stack)
+
+        # Sub-command for deploying APIMan stack
+        logging = subCommands.add_parser('apiman', parents=[commonArgs,subCommonArgs],\
+                                                    description="Deploy APIMan stack pods",\
+                                                    help="Deploy APIMan stack pods")
+        logging.set_defaults(subcommand=AOS.start_apiman_stack)
 
         # Enable logging and metrics view in OpenShift console
         logging = subCommands.add_parser('webconsole', parents=[commonArgs],\
