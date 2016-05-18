@@ -353,7 +353,7 @@ class AOS(object):
         cprint("Start deploying logging stack pods...",'blue')
         AOS.clean_logging_objects()
         AOS.run_ssh_command("oc secrets new logging-deployer nothing=/dev/null",ssh=False)
-        AOS.run_ssh_command("oc new-app logging-deployer-account-template -", ssh=False)
+        AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
 #        AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -', ssh=False)
 #        AOS.delete_oauth()
 #        AOS.do_permission("add-role-to-user","edit",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
