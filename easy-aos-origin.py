@@ -341,7 +341,8 @@ class AOS(object):
         AOS.run_ssh_command("oc delete all --selector logging-infra=kibana", ssh=False)
         AOS.run_ssh_command("oc delete all --selector logging-infra=fluentd", ssh=False)
         AOS.run_ssh_command("oc delete all --selector logging-infra=elasticsearch", ssh=False)
-        AOS.run_ssh_command("oc delete all,sa,oauthclient --selector logging-infra=support", ssh=False)
+        #AOS.run_ssh_command("oc delete all,sa,oauthclient --selector logging-infra=support", ssh=False)
+        AOS.run_ssh_command("oc delete all,sa --selector logging-infra=support", ssh=False)
         AOS.run_ssh_command("oc delete sa logging-deployer", ssh=False)
         AOS.run_ssh_command("oc delete secret logging-deployer logging-fluentd logging-elasticsearch logging-es-proxy logging-kibana logging-kibana-proxy logging-kibana-ops-proxy", ssh=False)
 
