@@ -348,7 +348,7 @@ class AOS(object):
 
     @classmethod
     def start_logging_stack(cls):
-#        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
+        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         AOS.login_server()
         cprint("Start deploying logging stack pods...",'blue')
         AOS.clean_logging_objects()
