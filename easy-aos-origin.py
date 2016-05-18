@@ -345,8 +345,7 @@ class AOS(object):
         AOS.run_ssh_command("oc delete all,sa --selector logging-infra=support", ssh=False)
         AOS.run_ssh_command("oc delete sa logging-deployer", ssh=False)
         AOS.run_ssh_command("oc delete secret logging-deployer logging-fluentd logging-elasticsearch logging-es-proxy logging-kibana logging-kibana-proxy logging-kibana-ops-proxy", ssh=False)
-        AOS.run_ssh_command("oc policy remove-role-from-user daemonset-admin --serviceaccount logging-deployer")
-        AOS.run_ssh_command("oadm policy remove-cluster-role-from-user oauth-editor system:serviceaccount:logging:logging-deployer")
+        AOS.run_ssh_command("oc delete ClusterRole daemonset-admin -n openshift && oc delete ClusterRole oauth-editor -n openshift")
 
     @classmethod
     def start_logging_stack(cls):
