@@ -10,7 +10,7 @@
     },
     "accessModes": [ "ReadWriteOnce" ],
     "nfs": {
-        "path": "/chunchen/metrics/",
+        "path": "/chunchen/metrics/",## "/chunchen/logging-es/"
         "server": "10.14.6.144"
     }
   }
