@@ -418,24 +418,33 @@ class AOS(object):
         cprint("Success!","green")
         cprint("Access APIMan Console via browser: ~/link.html", "green")
 
+    @staticmethod
+    def sudo_hack(cmd):
+       if "root" != AOS.masterUser:
+          return "sudo " + cmd
+       elif "openshift" in cmd:
+          return "openshift"
+       return cmd
+
     @classmethod
     def start_origin_openshift(cls):
         cprint("Starting OpenShift Service...","blue")
-        AOS.run_ssh_command("openshift start --public-master=%s:8443 --write-config=/etc/origin" % AOS.master)
+        openshift = "/data/src/github.com/openshift/origin/_output/local/bin/linux/amd64/openshift"
+        AOS.run_ssh_command("%s start --public-master=%s:8443 --write-config=/etc/origin" % (AOS.sudo_hack(openshift), AOS.master))
         #nodeConfigPath = outputs.rstrip().split()[-1]
         outputs = AOS.run_ssh_command("hostname")
         nodeConfigPath = '/etc/origin/node-' + outputs.strip()
         nodeConfig = os.path.join(nodeConfigPath,"node-config.yaml")
         masterConfig = os.path.join(AOS.masterConfigRoot, AOS.masterConfigFile)
         kubeConfig = os.path.join(AOS.masterConfigRoot, AOS.kubeConfigFile)
-        AOS.run_ssh_command("sed -i -e '/loggingPublicURL:/d' -e '/metricsPublicURL:/d' %s" % masterConfig)
-        AOS.run_ssh_command("killall openshift")
-        AOS.run_ssh_command("echo export KUBECONFIG=%s >> ~/.bashrc; nohup openshift start --node-config=%s --master-config=%s &> openshift.log &" % (kubeConfig,nodeConfig,masterConfig))
+        AOS.run_ssh_command("%s -i -e '/loggingPublicURL:/d' -e '/metricsPublicURL:/d' %s" % (AOS.sudo_hack("sed"),masterConfig))
+        AOS.run_ssh_command("%s openshift" % AOS.sudo_hack("killall"))
+        AOS.run_ssh_command("echo export KUBECONFIG={kube} >> ~/.bashrc; {chd} o+rx {kube}; nohup {os} start --node-config={node} --master-config={master} &> openshift.log &".format(chd=AOS.sudo_hack("chmod"),os=AOS.sudo_hack(openshift),node=nodeConfig,master=masterConfig,kube=kubeConfig))
         AOS.resource_validate("oc get projects", r"Active", enableSsh=True)
 
         # For automation cases related admin role
         master = AOS.master.replace('.','-')
-        AOS.run_ssh_command("oc config use-context default/%s:8443/system:admin && mkdir -p /root/.kube && cp /etc/origin/master/admin.kubeconfig /root/.kube/config" % master)
+        AOS.run_ssh_command("oc config use-context default/%s:8443/system:admin && %s -p /root/.kube && %s /etc/origin/master/admin.kubeconfig /root/.kube/config" % (master,AOS.sudo_hack('mkdir'),AOS.sudo_hack('cp')))
         outputs = AOS.run_ssh_command("oc get pods -n default")
         allRunningPods = re.findall(r'docker-registry.*Running.*|router-1.*Running.*', outputs)
         if 0 == len(allRunningPods):
@@ -470,15 +479,20 @@ class AOS(object):
     @staticmethod
     def create_default_pods():
         # Backup: --images='openshift/origin-${component}:latest
-        AOS.run_ssh_command("oc delete dc --all -n default; oc delete rc --all -n default; oc delete pods --all -n default; oc delete svc --all -n default; oc delete is --all -n openshift")
+        AOS.run_ssh_command("oc delete dc -n default; oc delete rc -n default; oc delete pods  -n default; oc delete svc -n default; oc delete is -n openshift; oc delete sa -n default; oc delete clusterrolebinding router-router-role")
         # Add permission for creating router
         AOS.run_ssh_command("oadm policy add-scc-to-user privileged system:serviceaccount:default:default")
+        chmod = AOS.sudo_hack('chmod')
         cprint("Creating registry and router pods",'blue')
-        cmd = "export CURL_CA_BUNDLE=/etc/origin/master/ca.crt; \
-                  chmod a+rwX /etc/origin/master/admin.kubeconfig; \
-                  chmod +r /etc/origin/master/openshift-registry.kubeconfig; \
-                  oadm registry --create --credentials=/etc/origin/master/openshift-registry.kubeconfig --config=/etc/origin/master/admin.kubeconfig; \
-                  oadm  router --credentials=/etc/origin/master/openshift-router.kubeconfig --config=/etc/origin/master/admin.kubeconfig --service-account=default"
+        cmd = 'export CURL_CA_BUNDLE=/etc/origin/master/ca.crt; \
+                  {chd} a+rwX /etc/origin/master/admin.kubeconfig; \
+                  {chd} +r /etc/origin/master/openshift-registry.kubeconfig; \
+                  oc create serviceaccount registry -n default; \
+                  oadm registry -n default --config=/etc/origin/master/admin.kubeconfig; \
+                  oc create serviceaccount router -n default; \
+                  oadm policy add-scc-to-user hostnetwork -z router;\
+                  oadm policy add-cluster-role-to-user system:router system:serviceaccount:default:router; \
+                  oadm  router --service-account=router'.format(chd=chmod)
         AOS.run_ssh_command(cmd)
 
     @classmethod
