@@ -479,7 +479,7 @@ class AOS(object):
     @staticmethod
     def create_default_pods():
         # Backup: --images='openshift/origin-${component}:latest
-        AOS.run_ssh_command("oc delete dc -n default; oc delete rc -n default; oc delete pods  -n default; oc delete svc -n default; oc delete is -n openshift; oc delete sa -n default; oc delete clusterrolebinding router-router-role")
+        AOS.run_ssh_command("oc delete dc -n default; oc delete rc -n default; oc delete pods  -n default; oc delete svc -n default; oc delete imagestreams -n openshift; oc delete sa -n default; oc delete clusterrolebinding router-router-role")
         # Add permission for creating router
         AOS.run_ssh_command("oadm policy add-scc-to-user privileged system:serviceaccount:default:default")
         chmod = AOS.sudo_hack('chmod')
