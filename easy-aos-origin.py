@@ -349,23 +349,30 @@ class AOS(object):
 
     @classmethod
     def start_logging_stack(cls):
-        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         AOS.login_server()
+        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         cprint("Start deploying logging stack pods...",'blue')
         AOS.clean_logging_objects()
-        AOS.run_ssh_command("oc secrets new logging-deployer nothing=/dev/null",ssh=False)
-        AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
-#        AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -', ssh=False)
-#        AOS.delete_oauth()
-#        AOS.do_permission("add-role-to-user","edit",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
-#        AOS.do_permission("add-cluster-role-to-user","cluster-admin",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
-        AOS.do_permission("add-role-to-user","edit",user="--serviceaccount logging-deployer")
-        AOS.do_permission("add-role-to-user","daemonset-admin",user="--serviceaccount logging-deployer")
-        AOS.do_permission("add-cluster-role-to-user","oauth-editor",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
-        AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
-#        AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
-        AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
         subdomain = AOS.get_subdomain()
+        AOS.run_ssh_command("oc secrets new logging-deployer nothing=/dev/null",ssh=False)
+
+        if AOS.imageVersion > "3.2.0":
+           AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
+           AOS.do_permission("add-role-to-user","edit",user="--serviceaccount logging-deployer")
+           AOS.do_permission("add-role-to-user","daemonset-admin",user="--serviceaccount logging-deployer")
+           AOS.do_permission("add-cluster-role-to-user","oauth-editor",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
+           AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+           AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+           AOS.run_ssh_command("oc label node --all logging-infra-fluentd=true --overwrite", ssh=False)
+        else:
+           AOS.delete_oauth()
+           AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -', ssh=False)
+           AOS.do_permission("add-role-to-user","edit",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
+           AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+           AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+           #AOS.do_permission("add-cluster-role-to-user","cluster-admin",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
+           #AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+
         cmd = "oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=false,IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},KIBANA_OPS_HOSTNAME={opsName}.{subdomain},PUBLIC_MASTER_URL=https://{master},ES_INSTANCE_RAM={ram},ES_CLUSTER_SIZE={size},IMAGE_VERSION={version},MASTER_URL=https://{master}|oc create -f -"\
                                                                                          .format(prefix=AOS.imagePrefix,kName=AOS.kibanaAppname,\
                                                                                           subdomain=subdomain,opsName=AOS.kibanaOpsAppname,
@@ -373,16 +380,20 @@ class AOS(object):
                                                                                           size=AOS.ESClusterSize,version=AOS.imageVersion)
         AOS.run_ssh_command(cmd,ssh=False)
         AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-deployer.+Completed", dstNum=1)
-        #AOS.run_ssh_command("oc process logging-support-template -n {project} -v IMAGE_VERSION={version}| oc create -n {project} -f -".format(project=AOS.osProject,version=AOS.imageVersion), ssh=False)
-        #imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
-        #AOS.set_annotation(imageStreams)
-        AOS.run_ssh_command("oc label node --all logging-infra-fluentd=true --overwrite", ssh=False)
+
+        if AOS.imageVersion <= "3.2.0":
+           AOS.run_ssh_command("oc process logging-support-template -n {project} -v IMAGE_VERSION={version}| oc create -n {project} -f -".format(project=AOS.osProject,version=AOS.imageVersion), ssh=False)
+           imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
+           AOS.set_annotation(imageStreams)
+
         AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
         AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator-\w+)", dstNum=3)
-        #outputs = AOS.run_ssh_command("oc get dc --no-headers -n {}".format(AOS.osProject), ssh=False)
-        #AOS.scale_up_pod(outputs)
-        #AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas=1", ssh=False)
-        #AOS.run_ssh_command("oc scale rc/logging-fluentd-1 --replicas=1", ssh=False)
+
+        if AOS.imageVersion <= "3.2.0":
+           nodeNum = AOS.run_ssh_command("oc get node --no-headers| grep -v Disabled | wc -l", ssh=True)
+#           AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas=1", ssh=False)
+           AOS.run_ssh_command("oc scale rc/logging-fluentd-1 --replicas={}".format(nodeNum), ssh=False)
+
         cprint("Success!","green")
 
     @staticmethod
@@ -447,6 +458,8 @@ class AOS(object):
         AOS.run_ssh_command("oc config use-context default/%s:8443/system:admin && %s -p /root/.kube && %s /etc/origin/master/admin.kubeconfig /root/.kube/config" % (master,AOS.sudo_hack('mkdir'),AOS.sudo_hack('cp')))
         outputs = AOS.run_ssh_command("oc get pods -n default")
         allRunningPods = re.findall(r'docker-registry.*Running.*|router-1.*Running.*', outputs)
+        lggtmptNum = AOS.run_ssh_command("oc get template -n openshift | grep logging", ssh=True)
+        if "0" = lggtmptNum:
         if 0 == len(allRunningPods):
             AOS.create_default_pods()
             AOS.create_imagestream_into_openshift_project()
@@ -479,7 +492,7 @@ class AOS(object):
     @staticmethod
     def create_default_pods():
         # Backup: --images='openshift/origin-${component}:latest
-        AOS.run_ssh_command("oc delete dc -n default; oc delete rc -n default; oc delete pods  -n default; oc delete svc -n default; oc delete imagestreams -n openshift; oc delete sa -n default; oc delete clusterrolebinding router-router-role")
+        AOS.run_ssh_command("oc delete dc -n default; oc delete rc -n default; oc delete pods  -n default; oc delete svc -n default; oc delete imagestreams -n openshift; oc delete sa router -n default; oc delete clusterrolebinding router-router-role; oc delete sa registry -n default; oc delete clusterrolebinding registry-registry-role -n default")
         # Add permission for creating router
         AOS.run_ssh_command("oadm policy add-scc-to-user privileged system:serviceaccount:default:default")
         chmod = AOS.sudo_hack('chmod')
