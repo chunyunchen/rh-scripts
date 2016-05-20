@@ -288,7 +288,7 @@ class AOS(object):
 
     @staticmethod
     def loginedOnce():
-        loginCMD = "oc login {0} -u {1} -p {2}".format(AOS.master, AOS.osUser, AOS.osPasswd)
+        loginCMD = "oc login https://{0} -u {1} -p {2}".format(AOS.master, AOS.osUser, AOS.osPasswd)
 
         fExist = os.path.exists(os.path.expanduser('~/.kube/config'))
         if not fExist or not AOS.run_ssh_command("grep {} ~/.kube/config".format(AOS.master), ssh=False):
@@ -301,7 +301,7 @@ class AOS(object):
     def login_server(cls):
         AOS.loginedOnce()
         cprint('Log into OpenShift...','blue')
-        AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.master,AOS.osUser,AOS.osPasswd),ssh=False)
+        AOS.run_ssh_command("oc login https://%s -u %s -p %s" % (AOS.master,AOS.osUser,AOS.osPasswd),ssh=False)
         AOS.add_project()
 
     @classmethod
