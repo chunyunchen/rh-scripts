@@ -458,8 +458,10 @@ class AOS(object):
         AOS.run_ssh_command("oc config use-context default/%s:8443/system:admin && %s -p /root/.kube && %s /etc/origin/master/admin.kubeconfig /root/.kube/config" % (master,AOS.sudo_hack('mkdir'),AOS.sudo_hack('cp')))
         outputs = AOS.run_ssh_command("oc get pods -n default")
         allRunningPods = re.findall(r'docker-registry.*Running.*|router-1.*Running.*', outputs)
-        lggtmptNum = AOS.run_ssh_command("oc get template -n openshift | grep logging", ssh=True)
-        if "0" = lggtmptNum:
+        lggtmpt = AOS.run_ssh_command("oc get template -n openshift --no-headers | grep logging", ssh=True)
+        if not lggtmpt:
+            AOS.run_ssh_command("oc create -f {} -n openshift".format(AOS.EFKDeployer), ssh=True)
+
         if 0 == len(allRunningPods):
             AOS.create_default_pods()
             AOS.create_imagestream_into_openshift_project()
