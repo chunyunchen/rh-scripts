@@ -280,7 +280,7 @@ class AOS(object):
 
     @staticmethod
     def loginedOnce():
-        loginCMD = "oc login {0} -u {1} -p {2}".format(AOS.master, AOS.osUser, AOS.osPasswd)
+        loginCMD = "oc login https://{0} -u {1} -p {2}".format(AOS.master, AOS.osUser, AOS.osPasswd)
 
         fExist = os.path.exists(os.path.expanduser('~/.kube/config'))
         if not fExist or not AOS.run_ssh_command("grep {} ~/.kube/config".format(AOS.master), ssh=False):
@@ -293,7 +293,7 @@ class AOS(object):
     def login_server(cls):
         AOS.loginedOnce()
         cprint('Log into OpenShift...','blue')
-        AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.master,AOS.osUser,AOS.osPasswd),ssh=False)
+        AOS.run_ssh_command("oc login https://%s -u %s -p %s" % (AOS.master,AOS.osUser,AOS.osPasswd),ssh=False)
         AOS.add_project()
 
     @classmethod
@@ -305,10 +305,10 @@ class AOS(object):
 
     @classmethod
     def delete_oauth(cls):
-        oauth = re.findall(r"kibana-proxy", AOS.run_ssh_command("oc get oauthclients -n openshift-infra"))
+        oauth = re.findall(r"kibana-proxy", AOS.run_ssh_command("oc get oauthclients", ssh=False))
         if 0 < len(oauth):
-            AOS.run_ssh_command("oc delete oauthclients kibana-proxy -n openshift-infra")
-            AOS.resource_validate("oc get oauthclients -n openshift-infra",r"kibana-proxy",dstNum=0)
+            AOS.run_ssh_command("oc delete oauthclients kibana-proxy", ssh=False)
+            AOS.resource_validate("oc get oauthclients",r"kibana-proxy",dstNum=0)
 
     @classmethod
     def set_annotation(cls, imageStreams):
@@ -384,14 +384,14 @@ class AOS(object):
         if AOS.imageVersion <= "3.2.0":
            AOS.run_ssh_command("oc process logging-support-template -n {project} -v IMAGE_VERSION={version}| oc create -n {project} -f -".format(project=AOS.osProject,version=AOS.imageVersion), ssh=False)
            imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
-           AOS.set_annotation(imageStreams)
+           #AOS.set_annotation(imageStreams)
 
         AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
         AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator-\w+)", dstNum=3)
 
         if AOS.imageVersion <= "3.2.0":
-           nodeNum = AOS.run_ssh_command("oc get node --no-headers| grep -v Disabled | wc -l", ssh=True)
-#           AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas=1", ssh=False)
+           nodeNum = AOS.run_ssh_command("oc get node --no-headers 2>/dev/null | grep -v Disabled | wc -l", ssh=True)
+           AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas=1", ssh=False)
            AOS.run_ssh_command("oc scale rc/logging-fluentd-1 --replicas={}".format(nodeNum), ssh=False)
 
         cprint("Success!","green")
