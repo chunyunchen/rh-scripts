@@ -52,7 +52,9 @@ class AOS(object):
     enablePV=""
     ESRam=""
     ESClusterSize=1
+    ESPVCSize = 10
     EFKDeployer=""
+    RegistryQEToken = ""
 
     SSHIntoMaster=""
     ScpFileFromMaster=""
@@ -86,6 +88,8 @@ class AOS(object):
         config.set('image','enable_pv','false')
         config.set('image','elastic_ram','1024M')
         config.set('image','elastic_cluster_size','1')
+        config.set('image', 'elstic_pvc_size', '10')
+        config.get('image', 'registryqe_token')
         config.set('image','efk_deployer','https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployment/deployer.yaml')
 
         with open(AOS.osConfigFile, 'wb') as defaultconfig:
@@ -120,7 +124,9 @@ class AOS(object):
         AOS.imageVersion = config.get("image","image_version")
         AOS.enablePV = config.get("image","enable_pv")
         AOS.ESRam = config.get("image","elastic_ram")
+        AOS.RegistryQEToken = config.get("image","registryqe_token")
         AOS.ESClusterSize = config.get("image","elastic_cluster_size")
+        AOS.ESPVCSize = config.get("image","elastic_pvc_size")
         AOS.EFKDeployer = config.get("image","efk_deployer")
 
         if AOS.osUser:
@@ -319,9 +325,35 @@ class AOS(object):
             if "registry.qe" not in AOS.imagePrefix:
               AOS.run_ssh_command('oc import-image {imgstream}:{version} --from={imgpre}{imgstream}:{version} --insecure=true'.format(imgstream=osIS, version=AOS.imageVersion, imgpre=AOS.imagePrefix), ssh=False)
             else:
+#              AOS.run_ssh_command('oc import-image {imgstream}:{version} --from={imgpre}{imgstream}:{version} --insecure=true'.format(imgstream=osIS, version=AOS.imageVersion, imgpre=AOS.imagePrefix), ssh=False)
               AOS.run_ssh_command('oc tag --source=docker {}{}:{} {}:{}'.format(AOS.imagePrefix, osIS, AOS.imageVersion, osIS, AOS.imageVersion), ssh=False)
               AOS.run_ssh_command('oc import-image {imgpre}{imgstream}:{version} --insecure=true --confirm'.format(imgstream=osIS, version=AOS.imageVersion, imgpre=AOS.imagePrefix), ssh=False)
             time.sleep(5)
+
+    @staticmethod
+    def update_dc_for_registryqe_repo():
+        dcs = AOS.run_ssh_command("oc get dc --no-headers -n {}".format(AOS.osProject), ssh=False)
+        dcList = [x.split()[0] for x in dcs.strip().split('\n')]
+        AOS.run_ssh_command("oc get dc logging-kibana -o yaml > dc.json", ssh=False)
+        AOS.run_ssh_command("sed -i -e 's#image: logging-kibana#image: registry.qe.openshift.com/openshift3/logging-kibana:3.2.0#g' -e 's#image: openshift-auth-proxy#image: registry.qe.openshift.com/openshift3/logging-auth-proxy:3.2.0#g' dc.json", ssh=False)
+        AOS.run_ssh_command("oc replace -f dc.json", ssh=False)
+        AOS.run_ssh_command("oc get dc logging-fluentd -o yaml > dc.json", ssh=False)
+        AOS.run_ssh_command("sed -i 's#image: logging-fluentd#image: registry.qe.openshift.com/openshift3/logging-fluentd:3.2.0#g' dc.json", ssh=False)
+        AOS.run_ssh_command("oc replace -f dc.json", ssh=False)
+        for dc in dcList:
+            if "es" in dc:
+               AOS.run_ssh_command("oc get dc {} -o yaml > dc.json".format(dc), ssh=False)
+               AOS.run_ssh_command("sed -i 's#image: logging-elasticsearch#image: registry.qe.openshift.com/openshift3/logging-elasticsearch:3.2.0#g' dc.json", ssh=False)
+               AOS.run_ssh_command("oc replace -f dc.json", ssh=False)
+
+        AOS.run_ssh_command("rm -f dc.json", ssh=False)
+
+    @staticmethod
+    def add_pull_secret_for_registryqe_repo():
+        AOS.run_ssh_command("oc secrets new-dockercfg mysecret --docker-server=registry.qe.openshift.com --docker-username=chunchen --docker-email=chunchen@redhat.com --docker-password={}".format(AOS.RegistryQEToken), ssh=False)
+        AOS.run_ssh_command("oc secrets add aggregated-logging-elasticsearch mysecret --for=pull", ssh=False)
+        AOS.run_ssh_command("oc secrets add aggregated-logging-fluentd mysecret --for=pull", ssh=False)
+        AOS.run_ssh_command("oc secrets add aggregated-logging-kibana mysecret --for=pull", ssh=False)
 
     @classmethod
     def start_metrics_stack(cls):
@@ -343,7 +375,6 @@ class AOS(object):
         AOS.run_ssh_command("oc delete all --selector logging-infra=kibana", ssh=False)
         AOS.run_ssh_command("oc delete all --selector logging-infra=fluentd", ssh=False)
         AOS.run_ssh_command("oc delete all --selector logging-infra=elasticsearch", ssh=False)
-        #AOS.run_ssh_command("oc delete all,sa,oauthclient --selector logging-infra=support", ssh=False)
         AOS.run_ssh_command("oc delete all,sa --selector logging-infra=support", ssh=False)
         AOS.run_ssh_command("oc delete sa logging-deployer", ssh=False)
         AOS.run_ssh_command("oc delete secret logging-deployer logging-fluentd logging-elasticsearch logging-es-proxy logging-kibana logging-kibana-proxy logging-kibana-ops-proxy", ssh=False)
@@ -357,6 +388,7 @@ class AOS(object):
         AOS.clean_logging_objects()
         subdomain = AOS.get_subdomain()
         AOS.run_ssh_command("oc secrets new logging-deployer nothing=/dev/null",ssh=False)
+        AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-elasticsearch".format(AOS.osProject))
 
         if AOS.imageVersion > "3.2.0":
            AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
@@ -375,10 +407,10 @@ class AOS(object):
            #AOS.do_permission("add-cluster-role-to-user","cluster-admin",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
            #AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
 
-        cmd = "oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=false,IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},KIBANA_OPS_HOSTNAME={opsName}.{subdomain},PUBLIC_MASTER_URL=https://{master},ES_INSTANCE_RAM={ram},ES_CLUSTER_SIZE={size},IMAGE_VERSION={version},MASTER_URL=https://{master}|oc create -f -"\
+        cmd = "oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=false,IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},KIBANA_OPS_HOSTNAME={opsName}.{subdomain},PUBLIC_MASTER_URL=https://{master},ES_INSTANCE_RAM={ram},ES_CLUSTER_SIZE={size},IMAGE_VERSION={version},MASTER_URL=https://{master},ES_PVC_SIZE={pvc_size}|oc create -f -"\
                                                                                          .format(prefix=AOS.imagePrefix,kName=AOS.kibanaAppname,\
                                                                                           subdomain=subdomain,opsName=AOS.kibanaOpsAppname,
-                                                                                          master=AOS.master,ram=AOS.ESRam,\
+                                                                                          master=AOS.master,ram=AOS.ESRam,pvc_size=AOS.ESPVCSize,\
                                                                                           size=AOS.ESClusterSize,version=AOS.imageVersion)
         AOS.run_ssh_command(cmd,ssh=False)
         AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-deployer.+Completed", dstNum=1)
@@ -386,6 +418,9 @@ class AOS(object):
         if AOS.imageVersion <= "3.2.0":
            AOS.run_ssh_command("oc process logging-support-template -n {project} -v IMAGE_VERSION={version}| oc create -n {project} -f -".format(project=AOS.osProject,version=AOS.imageVersion), ssh=False)
            imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
+           if "registry.qe" in AOS.imagePrefix:
+#              AOS.update_dc_for_registryqe_repo()
+              AOS.add_pull_secret_for_registryqe_repo()
            AOS.set_annotation(imageStreams)
 
         AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator-\w+)", dstNum=3)
