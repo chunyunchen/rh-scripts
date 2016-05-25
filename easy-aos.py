@@ -24,7 +24,6 @@ except ImportError:
        print("Note: The default color will be used for output messages.")
        cprint = print
 
-configFile = "./aos.conf"
 config = SafeConfigParser()
 
 def signal_handler(signal, frame):
@@ -34,7 +33,7 @@ def signal_handler(signal, frame):
 class AOS(object):
     '''Make easier for OpenShift tests!'''
 
-    osConfigFile = ""
+    osConfigFile = "./aos.conf"
     osUser=""
     osPasswd=""
     masterUser=""
@@ -51,20 +50,20 @@ class AOS(object):
     imagePrefix=""
     imageVersion=""
     enablePV=""
-    enableKibanaOps = False
     ESRam=""
     ESClusterSize=1
+    ESPVCSize = 10
     EFKDeployer=""
+    RegistryQEToken = ""
+    TokenUser = ""
+    TokenUserEMail = ""
 
     SSHIntoMaster=""
     ScpFileFromMaster=""
     osProject=""
     delProject = False
     pullLoggingMetricsImage = False
-
-    def __init__(self,config_file):
-        AOS.osConfigFile = config_file
-        config.read(config_file)
+    MasterURL = ""
 
     @staticmethod
     def generate_default_config():
@@ -90,9 +89,12 @@ class AOS(object):
         config.set('image','image_prefix','brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888/openshift3/')
         config.set('image','image_version','latest')
         config.set('image','enable_pv','false')
-        config.set("image", 'enable_kibana_ops','false')
         config.set('image','elastic_ram','1024M')
         config.set('image','elastic_cluster_size','1')
+        config.set('image', 'elastic_pvc_size', '10')
+        config.set('image', 'registryqe_token')
+        config.set('image', 'token_user', 'chunchen')
+        config.set('image', 'token_user_email', 'chunchen@redhat.com')
         config.set('image','efk_deployer','https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployment/deployer.yaml')
 
         with open(AOS.osConfigFile, 'wb') as defaultconfig:
@@ -100,19 +102,16 @@ class AOS(object):
 
     @staticmethod
     def show_current_config():
+        config.read(AOS.osConfigFile)
         for section in config.sections():
             items = config.items(section)
             items_with_newline = '\n'.join([' = '.join(item) for item in items])
             cprint('\n['+section+']', 'green')
             cprint(items_with_newline, 'blue')
 
-        if not config.sections():
-           cprint("Configurations not found!","red")
-           cprint("Please check if the file [{}] is in current directory or it is empty!".format(AOS.osConfigFile),"blue")
-           cprint("However, you don't worry about the file, it will be created automatically when executing another sub-commands,like 'startos'.","blue")
-
     @staticmethod
     def get_config(args):
+        config.read(AOS.osConfigFile)
         AOS.osUser = config.get("project","os_user")
         AOS.osPasswd = config.get("project","os_passwd")
         AOS.masterUser = config.get("project","master_user")
@@ -129,9 +128,12 @@ class AOS(object):
         AOS.imagePrefix = config.get("image","image_prefix")
         AOS.imageVersion = config.get("image","image_version")
         AOS.enablePV = config.get("image","enable_pv")
-        AOS.enableKibanaOps = config.get("image", "enable_kibana_ops")
         AOS.ESRam = config.get("image","elastic_ram")
+        AOS.RegistryQEToken = config.get("image","registryqe_token")
+        AOS.TokenUser = config.get("image","token_user")
+        AOS.TokenUserEMail = config.get("image","token_user_email")
         AOS.ESClusterSize = config.get("image","elastic_cluster_size")
+        AOS.ESPVCSize = config.get("image","elastic_pvc_size")
         AOS.EFKDeployer = config.get("image","efk_deployer")
 
         if AOS.osUser:
@@ -149,6 +151,8 @@ class AOS(object):
             aosVar = arg_map_to_param.get(arg)
             if value and aosVar: 
                setattr(AOS, aosVar, value)
+
+        AOS.MasterURL =  "https://{}".format(AOS.master)
 
     @staticmethod
     def echo_user_info():
@@ -222,7 +226,7 @@ class AOS(object):
             outputs = check_output(remote_command, shell=asShell, stderr=STDOUT)
             return outputs
         except (CalledProcessError,OSError), e:
-            if e.output and "no process found" not in e.output and "not found" not in e.output:
+            if e.output and "no process found" not in e.output and "not found" not in e.output and "request did not complete" not in e.output and "refused" not in e.output:
                 AOS.echo_command(remote_command)
                 cprint(e.output,'red')
                 cprint("Aborted!!!",'red',attrs=['bold'])
@@ -261,9 +265,12 @@ class AOS(object):
         iloop = 50
         interval = 6
         timeout = iloop * interval
-        while dstNum != len(re.findall(reStr,AOS.run_ssh_command(cmd,ssh=enableSsh))) and 0 < iloop:
+        output = ""
+        while dstNum != len(re.findall(reStr,output)) and 0 < iloop:
             time.sleep(interval)
             iloop -= 1
+            output = AOS.run_ssh_command(cmd,ssh=enableSsh)
+            cprint(output)
 
         if iloop == 0:
             cprint("Operation is not finished, timeout {} seconds".format(timeout),'yellow')
@@ -288,7 +295,7 @@ class AOS(object):
 
     @staticmethod
     def loginedOnce():
-        loginCMD = "oc login https://{0} -u {1} -p {2}".format(AOS.master, AOS.osUser, AOS.osPasswd)
+        loginCMD = "oc login {0} -u {1} -p {2}".format(AOS.MasterURL, AOS.osUser, AOS.osPasswd)
 
         fExist = os.path.exists(os.path.expanduser('~/.kube/config'))
         if not fExist or not AOS.run_ssh_command("grep {} ~/.kube/config".format(AOS.master), ssh=False):
@@ -301,7 +308,11 @@ class AOS(object):
     def login_server(cls):
         AOS.loginedOnce()
         cprint('Log into OpenShift...','blue')
-        AOS.run_ssh_command("oc login https://%s -u %s -p %s" % (AOS.master,AOS.osUser,AOS.osPasswd),ssh=False)
+        AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.MasterURL,AOS.osUser,AOS.osPasswd),ssh=False)
+        cprint('Try to log into OpenShift again...','blue')
+        AOS.MasterURL = "https://{}:8443".format(AOS.master)
+        AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.MasterURL,AOS.osUser,AOS.osPasswd),ssh=False)
+
         AOS.add_project()
 
     @classmethod
@@ -313,10 +324,10 @@ class AOS(object):
 
     @classmethod
     def delete_oauth(cls):
-        oauth = re.findall(r"kibana-proxy", AOS.run_ssh_command("oc get oauthclients -n openshift-infra"))
+        oauth = re.findall(r"kibana-proxy", AOS.run_ssh_command("oc get oauthclients", ssh=False))
         if 0 < len(oauth):
-            AOS.run_ssh_command("oc delete oauthclients kibana-proxy -n openshift-infra")
-            AOS.resource_validate("oc get oauthclients -n openshift-infra",r"kibana-proxy",dstNum=0)
+            AOS.run_ssh_command("oc delete oauthclients kibana-proxy", ssh=False)
+            AOS.resource_validate("oc get oauthclients",r"kibana-proxy",dstNum=0)
 
     @classmethod
     def set_annotation(cls, imageStreams):
@@ -324,10 +335,41 @@ class AOS(object):
         isList = [x.split()[0] for x in imageStreams.strip().split('\n')]
         for osIS in isList:
             AOS.run_ssh_command('oc patch imagestreams {}  -p {}'.format(osIS, pipes.quote('{"metadata":{"annotations":{"openshift.io/image.insecureRepository":"true"}}}')), ssh=False)
-            AOS.run_ssh_command('oc import-image {imgstream}:{version} --from={imgpre}{imgstream}:{version} --insecure=true'.format(imgstream=osIS, version=AOS.imageVersion, imgpre=AOS.imagePrefix), ssh=False)
-            #AOS.run_ssh_command('oc tag --source=docker {}{}:{} {}:{}'.format(AOS.imagePrefix, osIS, AOS.imageVersion, osIS, AOS.imageVersion), ssh=False)
-            #AOS.run_ssh_command('oc import-image {imgpre}{imgstream}:{version} --insecure=true --confirm'.format(imgstream=osIS, version=AOS.imageVersion, imgpre=AOS.imagePrefix), ssh=False)
+            if "registry.qe" not in AOS.imagePrefix:
+              AOS.run_ssh_command('oc import-image {imgstream}:{version} --from={imgpre}{imgstream}:{version} --insecure=true'.format(imgstream=osIS, version=AOS.imageVersion, imgpre=AOS.imagePrefix), ssh=False)
+            else:
+#              AOS.run_ssh_command('oc import-image {imgstream}:{version} --from={imgpre}{imgstream}:{version} --insecure=true'.format(imgstream=osIS, version=AOS.imageVersion, imgpre=AOS.imagePrefix), ssh=False)
+              AOS.run_ssh_command('oc tag --source=docker {}{}:{} {}:{}'.format(AOS.imagePrefix, osIS, AOS.imageVersion, osIS, AOS.imageVersion), ssh=False)
+              AOS.run_ssh_command('oc import-image {imgpre}{imgstream}:{version} --insecure=true --confirm'.format(imgstream=osIS, version=AOS.imageVersion, imgpre=AOS.imagePrefix), ssh=False)
             time.sleep(5)
+
+    @staticmethod
+    def update_dc_for_registryqe_repo():
+        dcs = AOS.run_ssh_command("oc get dc --no-headers -n {}".format(AOS.osProject), ssh=False)
+        dcList = [x.split()[0] for x in dcs.strip().split('\n')]
+        AOS.run_ssh_command("oc get dc logging-kibana -o yaml > dc.json", ssh=False)
+        AOS.run_ssh_command("sed -i -e 's#image: logging-kibana#image: registry.qe.openshift.com/openshift3/logging-kibana:3.2.0#g' -e 's#image: openshift-auth-proxy#image: registry.qe.openshift.com/openshift3/logging-auth-proxy:3.2.0#g' dc.json", ssh=False)
+        AOS.run_ssh_command("oc replace -f dc.json", ssh=False)
+        AOS.run_ssh_command("oc get dc logging-fluentd -o yaml > dc.json", ssh=False)
+        AOS.run_ssh_command("sed -i 's#image: logging-fluentd#image: registry.qe.openshift.com/openshift3/logging-fluentd:3.2.0#g' dc.json", ssh=False)
+        AOS.run_ssh_command("oc replace -f dc.json", ssh=False)
+        for dc in dcList:
+            if "es" in dc:
+               AOS.run_ssh_command("oc get dc {} -o yaml > dc.json".format(dc), ssh=False)
+               AOS.run_ssh_command("sed -i 's#image: logging-elasticsearch#image: registry.qe.openshift.com/openshift3/logging-elasticsearch:3.2.0#g' dc.json", ssh=False)
+               AOS.run_ssh_command("oc replace -f dc.json", ssh=False)
+
+        AOS.run_ssh_command("rm -f dc.json", ssh=False)
+
+    @staticmethod
+    def add_pull_secret_for_registryqe_repo():
+        if not AOS.RegistryQEToken or not AOS.TokenUser or not AOS.TokenUserEMail:
+           cprint("Please set 'registryqe_token', 'token_user' and 'token_user_email' under [image] section!", "red")
+           sys.exit(1)
+        AOS.run_ssh_command("oc secrets new-dockercfg mysecret --docker-server=registry.qe.openshift.com --docker-username={} --docker-email={} --docker-password={}".format(AOS.TokenUser, AOS.TokenUserEMail, AOS.RegistryQEToken), ssh=False)
+        AOS.run_ssh_command("oc secrets add aggregated-logging-elasticsearch mysecret --for=pull", ssh=False)
+        AOS.run_ssh_command("oc secrets add aggregated-logging-fluentd mysecret --for=pull", ssh=False)
+        AOS.run_ssh_command("oc secrets add aggregated-logging-kibana mysecret --for=pull", ssh=False)
 
     @classmethod
     def add_weburl_for_logging_and_metrics(cls):
@@ -344,7 +386,7 @@ class AOS(object):
            AOS.run_ssh_command("systemctl restart {}".format(master_server_name))
         else:
            cprint("Failed to restart master server due to not found master service",'red')
-  
+
     @classmethod
     def enable_logging_metircs_web_console(cls):
         AOS.add_weburl_for_logging_and_metrics()
@@ -360,8 +402,8 @@ class AOS(object):
         AOS.do_permission("add-role-to-user","edit", user="system:serviceaccount:%s:metrics-deployer" % AOS.osProject)
         AOS.run_ssh_command("oc secrets new metrics-deployer nothing=/dev/null",ssh=False)
         subdomain = AOS.get_subdomain()
-        AOS.run_ssh_command("oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.%s,IMAGE_PREFIX=%s,IMAGE_VERSION=%s,USE_PERSISTENT_STORAGE=%s,MASTER_URL=https://%s,CASSANDRA_PV_SIZE=5Gi\
-        |oc create -f -" % (AOS.hawkularMetricsAppname,subdomain,AOS.imagePrefix,AOS.imageVersion,AOS.enablePV,AOS.master), ssh=False)
+        AOS.run_ssh_command("oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.%s,IMAGE_PREFIX=%s,IMAGE_VERSION=%s,USE_PERSISTENT_STORAGE=%s,MASTER_URL=%s,CASSANDRA_PV_SIZE=5Gi\
+        |oc create -f -" % (AOS.hawkularMetricsAppname,subdomain,AOS.imagePrefix,AOS.imageVersion,AOS.enablePV,AOS.MasterURL), ssh=False)
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*Running.*")
         cprint("Success!","green")
 
@@ -371,9 +413,10 @@ class AOS(object):
         AOS.run_ssh_command("oc delete all --selector logging-infra=kibana", ssh=False)
         AOS.run_ssh_command("oc delete all --selector logging-infra=fluentd", ssh=False)
         AOS.run_ssh_command("oc delete all --selector logging-infra=elasticsearch", ssh=False)
-        AOS.run_ssh_command("oc delete all,sa,oauthclient --selector logging-infra=support", ssh=False)
+        AOS.run_ssh_command("oc delete all,sa --selector logging-infra=support", ssh=False)
         AOS.run_ssh_command("oc delete sa logging-deployer", ssh=False)
         AOS.run_ssh_command("oc delete secret logging-deployer logging-fluentd logging-elasticsearch logging-es-proxy logging-kibana logging-kibana-proxy logging-kibana-ops-proxy", ssh=False)
+        AOS.run_ssh_command("oc delete ClusterRole daemonset-admin -n openshift && oc delete ClusterRole oauth-editor -n openshift")
 
     @classmethod
     def start_logging_stack(cls):
@@ -381,34 +424,52 @@ class AOS(object):
         AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         cprint("Start deploying logging stack pods...",'blue')
         AOS.clean_logging_objects()
-        AOS.run_ssh_command("oc secrets new logging-deployer nothing=/dev/null",ssh=False)
-        AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -',\
-                                                                                                                                                                ssh=False)
-#        AOS.delete_oauth()
-        AOS.do_permission("add-role-to-user","edit",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
-#        AOS.do_permission("add-cluster-role-to-user","cluster-admin",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
-        AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
-#        AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
-        AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
         subdomain = AOS.get_subdomain()
-        cmd = "oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER={enable},IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},KIBANA_OPS_HOSTNAME={opsName}.{subdomain},PUBLIC_MASTER_URL=https://{master},ES_INSTANCE_RAM={ram},ES_CLUSTER_SIZE={size},IMAGE_VERSION={version},MASTER_URL=https://{master}|oc create -f -"\
-                                                                                         .format(enable=AOS.enableKibanaOps,prefix=AOS.imagePrefix,kName=AOS.kibanaAppname,\
+        AOS.run_ssh_command("oc secrets new logging-deployer nothing=/dev/null",ssh=False)
+        AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-elasticsearch".format(AOS.osProject))
+
+        if AOS.imageVersion > "3.2.0":
+           AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
+           AOS.do_permission("add-role-to-user","edit",user="--serviceaccount logging-deployer")
+           AOS.do_permission("add-role-to-user","daemonset-admin",user="--serviceaccount logging-deployer")
+           AOS.do_permission("add-cluster-role-to-user","oauth-editor",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
+           AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+           AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+           AOS.run_ssh_command("oc label node --all logging-infra-fluentd=true --overwrite", ssh=False)
+        else:
+           AOS.delete_oauth()
+           AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -', ssh=False)
+           AOS.do_permission("add-role-to-user","edit",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
+           AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+           AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+           #AOS.do_permission("add-cluster-role-to-user","cluster-admin",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
+           #AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+
+        cmd = "oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER=false,IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},KIBANA_OPS_HOSTNAME={opsName}.{subdomain},PUBLIC_MASTER_URL={master},ES_INSTANCE_RAM={ram},ES_CLUSTER_SIZE={size},IMAGE_VERSION={version},MASTER_URL={master},ES_PVC_SIZE={pvc_size}|oc create -f -"\
+                                                                                         .format(prefix=AOS.imagePrefix,kName=AOS.kibanaAppname,\
                                                                                           subdomain=subdomain,opsName=AOS.kibanaOpsAppname,
-                                                                                          master=AOS.master,ram=AOS.ESRam,\
+                                                                                          master=AOS.MasterURL,ram=AOS.ESRam,pvc_size=AOS.ESPVCSize,\
                                                                                           size=AOS.ESClusterSize,version=AOS.imageVersion)
         AOS.run_ssh_command(cmd,ssh=False)
         AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-deployer.+Completed", dstNum=1)
-        AOS.run_ssh_command("oc process logging-support-template -n {project}| oc create -n {project} -f -".format(project=AOS.osProject), ssh=False)
-        imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
-        AOS.set_annotation(imageStreams)
-        AOS.run_ssh_command("oc label node --all logging-infra-fluentd=true --overwrite", ssh=False)
-        AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
+
+        if AOS.imageVersion <= "3.2.0":
+           AOS.run_ssh_command("oc process logging-support-template -n {project} -v IMAGE_VERSION={version}| oc create -n {project} -f -".format(project=AOS.osProject,version=AOS.imageVersion), ssh=False)
+           imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
+           if "registry.qe" in AOS.imagePrefix:
+#              AOS.update_dc_for_registryqe_repo()
+              AOS.add_pull_secret_for_registryqe_repo()
+           AOS.set_annotation(imageStreams)
+
         AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator-\w+)", dstNum=3)
-        #outputs = AOS.run_ssh_command("oc get dc --no-headers -n {}".format(AOS.osProject), ssh=False)
-        #AOS.scale_up_pod(outputs)
-        AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas=1", ssh=False)
-        AOS.run_ssh_command("oc scale rc/logging-fluentd-1 --replicas=1", ssh=False)
-#        AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[logging-es|logging-fluentd|logging-kibana].*Running.*")
+
+        if AOS.imageVersion <= "3.2.0":
+           nodeNum = AOS.run_ssh_command("oc get node --no-headers 2>/dev/null | grep -v Disabled |grep -i -v Not | wc -l", ssh=False)
+           AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas={}".format(nodeNum), ssh=False)
+           AOS.run_ssh_command("oc scale rc/logging-fluentd-1 --replicas={}".format(nodeNum), ssh=False)
+
+        AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
+
         cprint("Success!","green")
 
     @staticmethod
@@ -418,7 +479,7 @@ class AOS(object):
         else:
            AOS.run_ssh_command("git clone https://github.com/openshift/origin-apiman.git",ssh=False)
         AOS.run_ssh_command("oc delete -f https://raw.githubusercontent.com/openshift/origin-apiman/master/deployer/deployer.yaml -n openshift")
-
+    
     @staticmethod
     def get_inner_registry_svcIPPort():
         # 172.30.20.237:5000
@@ -439,31 +500,44 @@ class AOS(object):
         AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:apiman-console" % AOS.osProject)
         AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:apiman-gateway" % AOS.osProject)
         subdomain = AOS.get_subdomain()
-        AOS.run_ssh_command("oc new-app apiman-deployer-template -p GATEWAY_HOSTNAME=gateway.{subdm},CONSOLE_HOSTNAME=console.{subdm},PUBLIC_MASTER_URL=https://{osdm},ES_CLUSTER_SIZE=1,IMAGE_PREFIX={imgpre}".format(subdm=subdomain,osdm=AOS.master,imgpre=imagePrefix), ssh=False)
+        AOS.run_ssh_command("oc new-app apiman-deployer-template -p GATEWAY_HOSTNAME=gateway.{subdm},CONSOLE_HOSTNAME=console.{subdm},PUBLIC_MASTER_URL={osdm},ES_CLUSTER_SIZE=1,IMAGE_PREFIX={imgpre}".format(subdm=subdomain,osdm=AOS.MasterURL,imgpre=imagePrefix), ssh=False)
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r"[apiman\-console|apiman\-curator|apiman\-es|apiman\-gateway].*Running.*", 4)
         cprint("Success!","green")
         cprint("Access APIMan Console via browser: ~/link.html", "green")
 
+    @staticmethod
+    def sudo_hack(cmd):
+       if "root" != AOS.masterUser:
+          return "sudo " + cmd
+       elif "openshift" in cmd:
+          return "openshift"
+       return cmd
+
     @classmethod
     def start_origin_openshift(cls):
         cprint("Starting OpenShift Service...","blue")
-        AOS.run_ssh_command("openshift start --public-master=%s:8443 --write-config=/etc/origin" % AOS.master)
-       # nodeConfigPath = outputs.rstrip().split()[-1]
+        openshift = "/data/src/github.com/openshift/origin/_output/local/bin/linux/amd64/openshift"
+        AOS.run_ssh_command("%s start --public-master=%s:8443 --write-config=/etc/origin" % (AOS.sudo_hack(openshift), AOS.master))
+        #nodeConfigPath = outputs.rstrip().split()[-1]
         outputs = AOS.run_ssh_command("hostname")
         nodeConfigPath = '/etc/origin/node-' + outputs.strip()
         nodeConfig = os.path.join(nodeConfigPath,"node-config.yaml")
         masterConfig = os.path.join(AOS.masterConfigRoot, AOS.masterConfigFile)
         kubeConfig = os.path.join(AOS.masterConfigRoot, AOS.kubeConfigFile)
-        AOS.run_ssh_command("sed -i -e '/loggingPublicURL:/d' -e '/metricsPublicURL:/d' %s" % masterConfig)
-        AOS.run_ssh_command("killall openshift")
-        AOS.run_ssh_command("echo export KUBECONFIG=%s >> ~/.bashrc; nohup openshift start --node-config=%s --master-config=%s &> openshift.log &" % (kubeConfig,nodeConfig,masterConfig))
+        AOS.run_ssh_command("%s -i -e '/loggingPublicURL:/d' -e '/metricsPublicURL:/d' %s" % (AOS.sudo_hack("sed"),masterConfig))
+        AOS.run_ssh_command("%s openshift" % AOS.sudo_hack("killall"))
+        AOS.run_ssh_command("echo export KUBECONFIG={kube} >> ~/.bashrc; {chd} o+rx {kube}; nohup {os} start --node-config={node} --master-config={master} &> openshift.log &".format(chd=AOS.sudo_hack("chmod"),os=AOS.sudo_hack(openshift),node=nodeConfig,master=masterConfig,kube=kubeConfig))
         AOS.resource_validate("oc get projects", r"Active", enableSsh=True)
 
         # For automation cases related admin role
         master = AOS.master.replace('.','-')
-        AOS.run_ssh_command("oc config use-context default/%s:8443/system:admin && mkdir -p /root/.kube && cp /etc/origin/master/admin.kubeconfig /root/.kube/config" % master)
+        AOS.run_ssh_command("oc config use-context default/%s:8443/system:admin && %s -p /root/.kube && %s /etc/origin/master/admin.kubeconfig /root/.kube/config" % (master,AOS.sudo_hack('mkdir'),AOS.sudo_hack('cp')))
         outputs = AOS.run_ssh_command("oc get pods -n default")
         allRunningPods = re.findall(r'docker-registry.*Running.*|router-1.*Running.*', outputs)
+        lggtmpt = AOS.run_ssh_command("oc get template -n openshift --no-headers | grep logging", ssh=True)
+        if not lggtmpt:
+            AOS.run_ssh_command("oc create -f {} -n openshift".format(AOS.EFKDeployer), ssh=True)
+
         if 0 == len(allRunningPods):
             AOS.create_default_pods()
             AOS.create_imagestream_into_openshift_project()
@@ -496,15 +570,20 @@ class AOS(object):
     @staticmethod
     def create_default_pods():
         # Backup: --images='openshift/origin-${component}:latest
-        AOS.run_ssh_command("oc delete dc --all -n default; oc delete rc --all -n default; oc delete pods --all -n default; oc delete svc --all -n default; oc delete is --all -n openshift")
+        AOS.run_ssh_command("oc delete dc -n default; oc delete rc -n default; oc delete pods  -n default; oc delete svc -n default; oc delete imagestreams -n openshift; oc delete sa router -n default; oc delete clusterrolebinding router-router-role; oc delete sa registry -n default; oc delete clusterrolebinding registry-registry-role -n default")
         # Add permission for creating router
         AOS.run_ssh_command("oadm policy add-scc-to-user privileged system:serviceaccount:default:default")
+        chmod = AOS.sudo_hack('chmod')
         cprint("Creating registry and router pods",'blue')
-        cmd = "export CURL_CA_BUNDLE=/etc/origin/master/ca.crt; \
-                  chmod a+rwX /etc/origin/master/admin.kubeconfig; \
-                  chmod +r /etc/origin/master/openshift-registry.kubeconfig; \
+        cmd = 'export CURL_CA_BUNDLE=/etc/origin/master/ca.crt; \
+                  {chd} a+rwX /etc/origin/master/admin.kubeconfig; \
+                  {chd} +r /etc/origin/master/openshift-registry.kubeconfig; \
+                  oc create serviceaccount registry -n default; \
                   oadm registry -n default --config=/etc/origin/master/admin.kubeconfig; \
-                  oadm  router --credentials=/etc/origin/master/openshift-router.kubeconfig --config=/etc/origin/master/admin.kubeconfig --service-account=default"
+                  oc create serviceaccount router -n default; \
+                  oadm policy add-scc-to-user hostnetwork -z router;\
+                  oadm policy add-cluster-role-to-user system:router system:serviceaccount:default:router; \
+                  oadm  router --service-account=router'.format(chd=chmod)
         AOS.run_ssh_command(cmd)
 
     @classmethod
@@ -527,8 +606,8 @@ class AOS(object):
     
         # Sub-command for starting OpenShift server
         startos = subCommands.add_parser('startos', parents=[commonArgs],\
-                                                    description="Start OpenShift origin server",\
-                                                    help="start OpenShift origin server")
+                                                    description="Start OpenShift server",\
+                                                    help="start OpenShift service")
         startos.add_argument('--pull', action="store_true",\
                                        help="Docker pull the metrics and logging related images from DockerHub.Default is False")
         startos.set_defaults(subcommand=AOS.start_origin_openshift)
@@ -544,7 +623,7 @@ class AOS(object):
                                                     description="Deploy logging stack pods",\
                                                     help="Deploy logging stack pods")
         logging.set_defaults(subcommand=AOS.start_logging_stack)
-
+    
         # Sub-command for deploying APIMan stack
         logging = subCommands.add_parser('apiman', parents=[commonArgs,subCommonArgs],\
                                                     description="Deploy APIMan stack pods",\
@@ -556,7 +635,7 @@ class AOS(object):
                                                     description="Enable logging and metrics view in OpenShift console",\
                                                     help="Enable logging and metrics view in OpenShift console")
         logging.set_defaults(subcommand=AOS.enable_logging_metircs_web_console)
-    
+
         # Show current configurations
         logging = subCommands.add_parser('showcfg', parents=[commonArgs],\
                                                     description="Show current configurations",\
@@ -572,6 +651,5 @@ class AOS(object):
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
 
-    aos = AOS(configFile)
-    args = aos.args_handler() 
+    args = AOS.args_handler() 
     args.subcommand()
