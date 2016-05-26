@@ -338,7 +338,6 @@ class AOS(object):
             if "registry.qe" not in AOS.imagePrefix:
               AOS.run_ssh_command('oc import-image {imgstream}:{version} --from={imgpre}{imgstream}:{version} --insecure=true'.format(imgstream=osIS, version=AOS.imageVersion, imgpre=AOS.imagePrefix), ssh=False)
             else:
-#              AOS.run_ssh_command('oc import-image {imgstream}:{version} --from={imgpre}{imgstream}:{version} --insecure=true'.format(imgstream=osIS, version=AOS.imageVersion, imgpre=AOS.imagePrefix), ssh=False)
               AOS.run_ssh_command('oc tag --source=docker {}{}:{} {}:{}'.format(AOS.imagePrefix, osIS, AOS.imageVersion, osIS, AOS.imageVersion), ssh=False)
               AOS.run_ssh_command('oc import-image {imgpre}{imgstream}:{version} --insecure=true --confirm'.format(imgstream=osIS, version=AOS.imageVersion, imgpre=AOS.imagePrefix), ssh=False)
             time.sleep(5)
@@ -428,7 +427,8 @@ class AOS(object):
         AOS.run_ssh_command("oc secrets new logging-deployer nothing=/dev/null",ssh=False)
         AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-elasticsearch".format(AOS.osProject))
 
-        if AOS.imageVersion > "3.2.1":
+        if AOS.imageVersion > "3.2.0" and "latest" not in AOS.imageVersion:
+        #if AOS.imageVersion > "3.2.0":
            AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
            AOS.do_permission("add-role-to-user","edit",user="--serviceaccount logging-deployer")
            AOS.do_permission("add-role-to-user","daemonset-admin",user="--serviceaccount logging-deployer")
@@ -453,7 +453,8 @@ class AOS(object):
         AOS.run_ssh_command(cmd,ssh=False)
         AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-deployer.+Completed", dstNum=1)
 
-        if AOS.imageVersion <= "3.2.1":
+        if AOS.imageVersion <= "3.2.0" or "latest" in AOS.imageVersion:
+        #if AOS.imageVersion <= "3.2.0":
            AOS.run_ssh_command("oc process logging-support-template -n {project} -v IMAGE_VERSION={version}| oc create -n {project} -f -".format(project=AOS.osProject,version=AOS.imageVersion), ssh=False)
            imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
            if "registry.qe" in AOS.imagePrefix:
@@ -463,7 +464,8 @@ class AOS(object):
 
         AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator-\w+)", dstNum=3)
 
-        if AOS.imageVersion <= "3.2.1":
+        if AOS.imageVersion <= "3.2.0" or "latest" in AOS.imageVersion:
+        #if AOS.imageVersion <= "3.2.0":
            nodeNum = AOS.run_ssh_command("oc get node --no-headers 2>/dev/null | grep -v Disabled |grep -i -v Not | wc -l", ssh=False)
            AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas={}".format(nodeNum), ssh=False)
            AOS.run_ssh_command("oc scale rc/logging-fluentd-1 --replicas={}".format(nodeNum), ssh=False)
