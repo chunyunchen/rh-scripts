@@ -644,8 +644,13 @@ class AOS(object):
                                                     help="Show current configurations")
         logging.set_defaults(subcommand=AOS.show_current_config)
 
+        # Generate default config file
+        logging = subCommands.add_parser('cfg', description="Generate default config file",\
+                                                    help="Generate default config file")
+        logging.set_defaults(subcommand=AOS.generate_default_config)
+
         args = commands.parse_args()
-        if not 'show_current_config' == args.subcommand.__name__:
+        if not re.match("(show_current_config|generate_default_config)", args.subcommand.__name__):
            AOS.check_validation(args)
      
         return args
