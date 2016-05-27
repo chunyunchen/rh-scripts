@@ -191,7 +191,9 @@ class AOS(object):
     def check_validation(cls,args):
         cprint("Checking confiures...",'blue')
         if not os.path.isfile(AOS.osConfigFile):
-            AOS.generate_default_config()
+            cprint("Please create your config file by:","red")
+            cprint("easy-aos.py cfg","blue")
+            sys.exit(1)
 
         AOS.get_config(args)
 
