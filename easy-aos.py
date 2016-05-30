@@ -95,7 +95,7 @@ class AOS(object):
         config.set('image', 'registryqe_token')
         config.set('image', 'token_user', 'chunchen')
         config.set('image', 'token_user_email', 'chunchen@redhat.com')
-        config.set('image','efk_deployer','https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployment/deployer.yaml')
+        config.set('image','efk_deployer','https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployer/deployer.yaml')
 
         with open(AOS.osConfigFile, 'wb') as defaultconfig:
            config.write(defaultconfig)
@@ -504,7 +504,7 @@ class AOS(object):
         AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:apiman-console" % AOS.osProject)
         AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:apiman-gateway" % AOS.osProject)
         subdomain = AOS.get_subdomain()
-        AOS.run_ssh_command("oc new-app apiman-deployer-template -p GATEWAY_HOSTNAME=gateway.{subdm},CONSOLE_HOSTNAME=console.{subdm},PUBLIC_MASTER_URL={osdm},ES_CLUSTER_SIZE=1,IMAGE_PREFIX={imgpre}".format(subdm=subdomain,osdm=AOS.MasterURL,imgpre=imagePrefix), ssh=False)
+        AOS.run_ssh_command("oc new-app apiman-deployer-template -p GATEWAY_HOSTNAME=gateway.{subdm},CONSOLE_HOSTNAME=console.{subdm},PUBLIC_MASTER_URL={osdm},ES_CLUSTER_SIZE=1,IMAGE_PREFIX={imgpre},IMAGE_VERSION={imgtag}".format(subdm=subdomain,osdm=AOS.MasterURL,imgpre=imagePrefix,imgtag=AOS.imageVersion), ssh=False)
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r"[apiman\-console|apiman\-curator|apiman\-es|apiman\-gateway].*Running.*", 4)
         cprint("Success!","green")
         cprint("Access APIMan Console via browser: ~/link.html", "green")
@@ -522,7 +522,6 @@ class AOS(object):
         cprint("Starting OpenShift Service...","blue")
         openshift = "/data/src/github.com/openshift/origin/_output/local/bin/linux/amd64/openshift"
         AOS.run_ssh_command("%s start --public-master=%s:8443 --write-config=/etc/origin" % (AOS.sudo_hack(openshift), AOS.master))
-        #nodeConfigPath = outputs.rstrip().split()[-1]
         outputs = AOS.run_ssh_command("hostname")
         nodeConfigPath = '/etc/origin/node-' + outputs.strip()
         nodeConfig = os.path.join(nodeConfigPath,"node-config.yaml")
@@ -571,10 +570,25 @@ class AOS(object):
         cmd = ';'.join([' '.join(['docker pull',imagePrefix+image]) for imagePrefix in imagePrefixs for image in images])
         AOS.run_ssh_command(cmd)
 
+
+    @staticmethod
+    def delete_resource(resource):
+        enabledSSH = False
+        resource, rtype, project = resource.split(":")
+        delCmd = "oc delete {rtp} {rsc} -n {prj}".format(rtp=rtype, rsc=resource, prj=project)
+        getCmd = "oc get {rtp} {rsc} -n {prj}".format(rtp=rtype, rsc=resource, prj=project)
+        if re.match("(default|openshift)", project):
+            enabledSSH = True
+
+        resources = AOS.run_ssh_command(getCmd, ssh=enabledSSH)
+        if resources:
+           AOS.run_ssh_command(delCmd, ssh=enabledSSH)
+
     @staticmethod
     def create_default_pods():
-        # Backup: --images='openshift/origin-${component}:latest
-        AOS.run_ssh_command("oc delete dc -n default; oc delete rc -n default; oc delete pods  -n default; oc delete svc -n default; oc delete imagestreams -n openshift; oc delete sa router -n default; oc delete clusterrolebinding router-router-role; oc delete sa registry -n default; oc delete clusterrolebinding registry-registry-role -n default")
+        resourceList = [":dc:default",":rc:default",":pod:default","docker-registry:svc:default","router:svc:default",":imagestreams:default","router:sa:default","router-router-role:clusterrolebinding:default","registry:sa:default","registry-registry-role:clusterrolebinding:default"]
+        for resource in resourceList:
+            AOS.delete_resource(resource)
         # Add permission for creating router
         AOS.run_ssh_command("oadm policy add-scc-to-user privileged system:serviceaccount:default:default")
         chmod = AOS.sudo_hack('chmod')

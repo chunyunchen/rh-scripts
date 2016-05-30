@@ -1,0 +1,57 @@
+Deploy fabric8-console on OpenShift:
+
+Refer to: http://fabric8.io/guide/getStarted/apps.html#console
+
+1. setup domain
+
+export KUBERNETES_DOMAIN=ec2-52-90-106-124.compute-1.amazonaws.com
+
+2. Download gofabric8 binary from https://github.com/fabric8io/gofabric8/releases
+
+3. Create a project on OpenShift and add cluster-admin role to user
+
+oc new-project PROJECT-NAME
+
+oadm policy add-cluster-role-to-user cluster-admin USER  ## run on master host
+
+4. Install fabric8
+
+./gofabric8 deploy -y
+
+./gofabric8 secrets -y
+
+5. Add fabric8 app route to master-config.yaml
+
+oc get route
+
+cat master-config.yaml
+<-----------snip--------->
+corsAllowedOrigins:
+- 127.0.0.1
+- ec2-52-90-106-124.compute-1.amazonaws.com:8443
+- fabric8.{KUBERNETES_DOMAIN}
+<-----------snip--------->
+
+6. Restart OpenShift master server
+
+7. Refer to http://fabric8.io/guide/getStarted/apps.html#ipaas to download the latest apiman templates,
+    Then access this url http://repo1.maven.org/maven2/io/fabric8/ipaas/distro/distro to find latest templae, like below:
+
+curl -o apiman.zip http://repo1.maven.org/maven2/io/fabric8/ipaas/distro/distro/2.2.103/distro-2.2.103-templates.zip
+
+8. Deploy apiman app
+
+unzip apiman.zip && cd main
+
+oc process -f apiman-2.2.103.json | oc create -f -
+
+9. Create route for apiman by following http://fabric8.io/guide/getStarted/apps.html#creating-routes
+
+mvn io.fabric8:fabric8-maven-plugin:2.2.101:create-routes
+
+10. Access APIman ui console
+
+In Fabric8 web console -> click your project name -> click "Runtime" -> click 'Services' -> click service name 'apiman' -> click 'Connect' button at right top
+
+Now there are only have "Go to My Namespaces" and "Browser/Find a Namespace" links in the "Namespaces" tab on the page
+And there should not link for creating/updating an namespace
