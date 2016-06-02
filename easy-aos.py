@@ -401,7 +401,8 @@ class AOS(object):
     def start_metrics_stack(cls):
         AOS.login_server()
         cprint("starting metrics stack...",'blue')
-        AOS.run_ssh_command("oc create -f %s" % AOS.SAMetricsDeployer, ssh=False)
+       # AOS.run_ssh_command("oc create -f %s" % AOS.SAMetricsDeployer, ssh=False)
+        AOS.run_ssh_command("oc create serviceaccount metrics-deployer",ssh=False)
         AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:heapster" % AOS.osProject)
         AOS.do_permission("add-role-to-user","edit", user="system:serviceaccount:%s:metrics-deployer" % AOS.osProject)
         AOS.run_ssh_command("oc secrets new metrics-deployer nothing=/dev/null",ssh=False)
