@@ -642,8 +642,8 @@ class AOS(object):
     
         # Sub-command for starting OpenShift server
         startos = subCommands.add_parser('startos', parents=[commonArgs],\
-                                                    description="Start OpenShift server",\
-                                                    help="start OpenShift service")
+                                                    description="Start OpenShift origin server",\
+                                                    help="start OpenShift origin service")
         startos.add_argument('--pull', action="store_true",\
                                        help="Docker pull the metrics and logging related images from DockerHub.Default is False")
         startos.set_defaults(subcommand=AOS.start_origin_openshift)
