@@ -231,7 +231,7 @@ class AOS(object):
             outputs = check_output(remote_command, shell=asShell, stderr=STDOUT)
             return outputs
         except (CalledProcessError,OSError), e:
-            if e.output and not re.match(".*(cannot be updated|no process found|not found|request did not complete|refused|Service Unavailable).*",  e.output):
+            if e.output and not re.match(".*(cannot be updated|no process found|not found|request did not complete|refused|Service Unavailable|Unable to connect).*",  e.output):
                 AOS.echo_command(remote_command)
                 cprint(e.output,'red')
                 cprint("Aborted!!!",'red',attrs=['bold'])
