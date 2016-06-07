@@ -58,6 +58,7 @@ class AOS(object):
     RegistryQEToken = ""
     TokenUser = ""
     TokenUserEMail = ""
+    deployMode = ""
 
     SSHIntoMaster=""
     ScpFileFromMaster=""
@@ -96,6 +97,7 @@ class AOS(object):
         config.set('image', 'elastic_pvc_size', '10')
         config.set('image', 'registryqe_token')
         config.set('image', 'token_user', 'chunchen')
+        config.set('image', 'deploy_mode', 'deploy')
         config.set('image', 'token_user_email', 'chunchen@redhat.com')
         config.set('image','efk_deployer','https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployer/deployer.yaml')
 
@@ -134,6 +136,7 @@ class AOS(object):
         AOS.ESRam = config.get("image","elastic_ram")
         AOS.RegistryQEToken = config.get("image","registryqe_token")
         AOS.TokenUser = config.get("image","token_user")
+        AOS.deployMode = config.get("image", "deploy_mode")
         AOS.TokenUserEMail = config.get("image","token_user_email")
         AOS.ESClusterSize = config.get("image","elastic_cluster_size")
         AOS.ESPVCSize = config.get("image","elastic_pvc_size")
@@ -147,7 +150,8 @@ class AOS(object):
                             'd': 'delProject',
                             'pull': 'pullLoggingMetricsImage',
                             'prefix': 'imagePrefix',
-                            'mtag': 'imageVersion'
+                            'mtag': 'imageVersion',
+                            'mode': 'deployMode',
                            }
         existedArgs = vars(args).items()
         for arg,value in existedArgs:
@@ -407,8 +411,7 @@ class AOS(object):
         AOS.do_permission("add-role-to-user","edit", user="system:serviceaccount:%s:metrics-deployer" % AOS.osProject)
         AOS.run_ssh_command("oc secrets new metrics-deployer nothing=/dev/null",ssh=False)
         subdomain = AOS.get_subdomain()
-        AOS.run_ssh_command("oc process openshift//metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.%s,IMAGE_PREFIX=%s,IMAGE_VERSION=%s,USE_PERSISTENT_STORAGE=%s,MASTER_URL=%s,CASSANDRA_PV_SIZE=5Gi\
-        |oc create -f -" % (AOS.hawkularMetricsAppname,subdomain,AOS.imagePrefix,AOS.imageVersion,AOS.enablePV,AOS.MasterURL), ssh=False)
+        AOS.run_ssh_command("oc new-app metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.%s,IMAGE_PREFIX=%s,IMAGE_VERSION=%s,USE_PERSISTENT_STORAGE=%s,MASTER_URL=%s,CASSANDRA_PV_SIZE=5Gi,MODE={mode}" % (AOS.hawkularMetricsAppname,subdomain,AOS.imagePrefix,AOS.imageVersion,AOS.enablePV,AOS.MasterURL,AOS.depoyMode), ssh=False)
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*Running.*")
         cprint("Success!","green")
 
@@ -423,8 +426,16 @@ class AOS(object):
         AOS.run_ssh_command("oc delete secret logging-deployer logging-fluentd logging-elasticsearch logging-es-proxy logging-kibana logging-kibana-proxy logging-kibana-ops-proxy", ssh=False)
         AOS.run_ssh_command("oc delete ClusterRole daemonset-admin -n openshift && oc delete ClusterRole oauth-editor -n openshift")
 
+    @staticmethod
+    def set_mode_for_logging():
+        if "deploy" == AOS.deployMode:
+           AOS.deployMode = "install"
+        if "redeploy" == AOS.deployMode:
+           AOS.deployMode = "reinstall"
+
     @classmethod
     def start_logging_stack(cls):
+        AOS.set_mode_for_logging()
         AOS.login_server()
         AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         cprint("Start deploying logging stack pods...",'blue')
@@ -451,11 +462,11 @@ class AOS(object):
            #AOS.do_permission("add-cluster-role-to-user","cluster-admin",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
            #AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
 
-        cmd = "oc process openshift//logging-deployer-template -v ENABLE_OPS_CLUSTER={ops},IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},KIBANA_OPS_HOSTNAME={opsName}.{subdomain},PUBLIC_MASTER_URL={master},ES_INSTANCE_RAM={ram},ES_CLUSTER_SIZE={size},IMAGE_VERSION={version},MASTER_URL={master},ES_PVC_SIZE={pvc_size},ES_PVC_PREFIX=es-pvc|oc create -f -"\
+        cmd = "oc new-app logging-deployer-template -v ENABLE_OPS_CLUSTER={ops},IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},KIBANA_OPS_HOSTNAME={opsName}.{subdomain},PUBLIC_MASTER_URL={master},ES_INSTANCE_RAM={ram},ES_CLUSTER_SIZE={size},IMAGE_VERSION={version},MASTER_URL={master},ES_PVC_SIZE={pvc_size},ES_PVC_PREFIX=es-pvc,MODE={mode}"\
                                                                                          .format(ops=AOS.enableKibanaOps,prefix=AOS.imagePrefix,kName=AOS.kibanaAppname,\
                                                                                           subdomain=subdomain,opsName=AOS.kibanaOpsAppname,
                                                                                           master=AOS.MasterURL,ram=AOS.ESRam,pvc_size=AOS.ESPVCSize,\
-                                                                                          size=AOS.ESClusterSize,version=AOS.imageVersion)
+                                                                                          size=AOS.ESClusterSize,version=AOS.imageVersion,mode=AOS.depoyMode)
         AOS.run_ssh_command(cmd,ssh=False)
         AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-deployer.+Completed", dstNum=1)
 
@@ -636,6 +647,7 @@ class AOS(object):
                                          help="Delete OpenShift project and Re-create. Default is False")
         subCommonArgs.add_argument('--prefix',help="Image prefix, eg:brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888/openshift3/")
         subCommonArgs.add_argument('--mtag',help="Image tag, eg: latest")
+        subCommonArgs.add_argument('--mode',help="Deploy mode, like: deploy|install|...")
     
         commands = ArgumentParser(parents=[commonArgs],description="Setup OpenShift on EC2 or Deploy metrics/logging stack")
         subCommands = commands.add_subparsers(title='subcommands:')
