@@ -411,7 +411,7 @@ class AOS(object):
         AOS.do_permission("add-role-to-user","edit", user="system:serviceaccount:%s:metrics-deployer" % AOS.osProject)
         AOS.run_ssh_command("oc secrets new metrics-deployer nothing=/dev/null",ssh=False)
         subdomain = AOS.get_subdomain()
-        AOS.run_ssh_command("oc new-app metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.%s,IMAGE_PREFIX=%s,IMAGE_VERSION=%s,USE_PERSISTENT_STORAGE=%s,MASTER_URL=%s,CASSANDRA_PV_SIZE=5Gi,MODE={mode}" % (AOS.hawkularMetricsAppname,subdomain,AOS.imagePrefix,AOS.imageVersion,AOS.enablePV,AOS.MasterURL,AOS.depoyMode), ssh=False)
+        AOS.run_ssh_command("oc new-app metrics-deployer-template -v HAWKULAR_METRICS_HOSTNAME=%s.%s,IMAGE_PREFIX=%s,IMAGE_VERSION=%s,USE_PERSISTENT_STORAGE=%s,MASTER_URL=%s,CASSANDRA_PV_SIZE=5Gi,MODE={mode}" % (AOS.hawkularMetricsAppname,subdomain,AOS.imagePrefix,AOS.imageVersion,AOS.enablePV,AOS.MasterURL,AOS.deployMode), ssh=False)
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*Running.*")
         cprint("Success!","green")
 
@@ -466,7 +466,7 @@ class AOS(object):
                                                                                          .format(ops=AOS.enableKibanaOps,prefix=AOS.imagePrefix,kName=AOS.kibanaAppname,\
                                                                                           subdomain=subdomain,opsName=AOS.kibanaOpsAppname,
                                                                                           master=AOS.MasterURL,ram=AOS.ESRam,pvc_size=AOS.ESPVCSize,\
-                                                                                          size=AOS.ESClusterSize,version=AOS.imageVersion,mode=AOS.depoyMode)
+                                                                                          size=AOS.ESClusterSize,version=AOS.imageVersion,mode=AOS.deployMode)
         AOS.run_ssh_command(cmd,ssh=False)
         AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-deployer.+Completed", dstNum=1)
 
