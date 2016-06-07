@@ -95,7 +95,7 @@ class AOS(object):
         config.set('image','elastic_ram','1024M')
         config.set('image','elastic_cluster_size','1')
         config.set('image', 'elastic_pvc_size', '10')
-        config.set('image', 'registryqe_token')
+        config.set('image', 'registryqe_token','')
         config.set('image', 'token_user', 'chunchen')
         config.set('image', 'deploy_mode', 'deploy')
         config.set('image', 'token_user_email', 'chunchen@redhat.com')
