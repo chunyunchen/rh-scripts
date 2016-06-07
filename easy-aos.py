@@ -404,12 +404,13 @@ class AOS(object):
     @classmethod
     def start_metrics_stack(cls):
         AOS.login_server()
-        cprint("starting metrics stack...",'blue')
+        cprint("{} metrics stack...".format(AOS.deployMode),'blue')
        # AOS.run_ssh_command("oc create -f %s" % AOS.SAMetricsDeployer, ssh=False)
-        AOS.run_ssh_command("oc create serviceaccount metrics-deployer",ssh=False)
-        AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:heapster" % AOS.osProject)
-        AOS.do_permission("add-role-to-user","edit", user="system:serviceaccount:%s:metrics-deployer" % AOS.osProject)
-        AOS.run_ssh_command("oc secrets new metrics-deployer nothing=/dev/null",ssh=False)
+        if "deploy" == AOS.deployMode:
+           AOS.run_ssh_command("oc create serviceaccount metrics-deployer",ssh=False)
+           AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:heapster" % AOS.osProject)
+           AOS.do_permission("add-role-to-user","edit", user="system:serviceaccount:%s:metrics-deployer" % AOS.osProject)
+           AOS.run_ssh_command("oc secrets new metrics-deployer nothing=/dev/null",ssh=False)
         subdomain = AOS.get_subdomain()
         AOS.run_ssh_command("oc new-app metrics-deployer-template -p HAWKULAR_METRICS_HOSTNAME=%s.%s,IMAGE_PREFIX=%s,IMAGE_VERSION=%s,USE_PERSISTENT_STORAGE=%s,MASTER_URL=%s,CASSANDRA_PV_SIZE=5Gi,MODE=%s" % (AOS.hawkularMetricsAppname,subdomain,AOS.imagePrefix,AOS.imageVersion,AOS.enablePV,AOS.MasterURL,AOS.deployMode), ssh=False)
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*Running.*")
