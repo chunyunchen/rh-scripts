@@ -197,10 +197,11 @@ class AOS(object):
     @staticmethod
     def set_ssh_master():
         output = AOS.run_ssh_command("which oadm")
-        if "no oadm" in output:
+        if not output:
            ssh_master = AOS.run_ssh_command("grep loginURL /etc//origin/master/master-config.yaml | awk -F'/' '{print $3}'")
-           AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, ssh_master)
-           AOS.ScpFileFromMaster = "scp -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s:" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, ssh_master)
+           cprint(ssh_master)
+           AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, ssh_master.strip())
+           AOS.ScpFileFromMaster = "scp -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s:" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, ssh_master.strip())
 
     @classmethod
     def check_validation(cls,args):
@@ -244,7 +245,7 @@ class AOS(object):
             outputs = check_output(remote_command, shell=asShell, stderr=STDOUT)
             return outputs
         except (CalledProcessError,OSError), e:
-            if e.output and not re.match(".*(cannot be updated|no process found|not found|request did not complete|refused|Service Unavailable|Unable to connect).*",  e.output):
+            if e.output and not re.match(".*(which|cannot be updated|no process found|not found|request did not complete|refused|Service Unavailable|Unable to connect).*",  e.output):
                 AOS.echo_command(remote_command)
                 cprint(e.output,'red')
                 cprint("Aborted!!!",'red',attrs=['bold'])
