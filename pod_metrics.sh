@@ -16,5 +16,6 @@ fi
 
 if [ "10" == "$1" ];
 then
+echo "curl --insecure -H "Authorization: Bearer `oc whoami -t`" -H "Hawkular-tenant: ${ns}" -X GET https://${mr}/hawkular/metrics/metrics |python -m json.tool"
 curl --insecure -H "Authorization: Bearer `oc whoami -t`" -H "Hawkular-tenant: ${ns}" -X GET https://${mr}/hawkular/metrics/metrics |python -m json.tool
 fi
