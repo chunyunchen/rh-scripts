@@ -490,7 +490,10 @@ class AOS(object):
               AOS.add_pull_secret_for_registryqe_repo()
            AOS.set_annotation(imageStreams)
 
-        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator-\w+)", dstNum=3)
+        dcNum = 4
+        if "true" in AOS.enableKibanaOps:
+           dcNum += 3
+        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator-\w+)", dstNum=dcNum)
 
         #if AOS.imageVersion <= "3.2.0" or "latest" in AOS.imageVersion or "v" in AOS.imageVersion:
         if AOS.imageVersion <= "3.2.1":
