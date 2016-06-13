@@ -473,10 +473,10 @@ class AOS(object):
            #AOS.do_permission("add-cluster-role-to-user","cluster-admin",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
            #AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
 
-        cmd = "oc new-app logging-deployer-template -p ENABLE_OPS_CLUSTER={ops},IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},KIBANA_OPS_HOSTNAME={opsName}.{subdomain},PUBLIC_MASTER_URL={master},ES_INSTANCE_RAM={ram},ES_CLUSTER_SIZE={size},IMAGE_VERSION={version},MASTER_URL={master},ES_PVC_SIZE={pvc_size},MODE={mode}"\
+        cmd = "oc new-app logging-deployer-template -p ENABLE_OPS_CLUSTER={ops},IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},KIBANA_OPS_HOSTNAME={opsName}.{subdomain},PUBLIC_MASTER_URL={master},ES_INSTANCE_RAM={ram},ES_CLUSTER_SIZE={size},IMAGE_VERSION={version},MASTER_URL={master},MODE={mode}"\
                                                                                          .format(ops=AOS.enableKibanaOps,prefix=AOS.imagePrefix,kName=AOS.kibanaAppname,\
                                                                                           subdomain=subdomain,opsName=AOS.kibanaOpsAppname,
-                                                                                          master=AOS.MasterURL,ram=AOS.ESRam,pvc_size=AOS.ESPVCSize,\
+                                                                                          master=AOS.MasterURL,ram=AOS.ESRam,\
                                                                                           size=AOS.ESClusterSize,version=AOS.imageVersion,mode=AOS.deployMode)
         AOS.run_ssh_command(cmd,ssh=False)
         AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-deployer.+Completed", dstNum=1)
