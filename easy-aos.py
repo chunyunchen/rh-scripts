@@ -490,18 +490,22 @@ class AOS(object):
               AOS.add_pull_secret_for_registryqe_repo()
            AOS.set_annotation(imageStreams)
 
+        AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
+
         dcNum = 4
         if "true" in AOS.enableKibanaOps:
            dcNum += 3
-        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator-\w+)", dstNum=dcNum)
+        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd|logging-kibana|logging-es-\w+|logging-curator)", dstNum=dcNum)
 
         #if AOS.imageVersion <= "3.2.0" or "latest" in AOS.imageVersion or "v" in AOS.imageVersion:
         if AOS.imageVersion <= "3.2.1":
            nodeNum = AOS.run_ssh_command("oc get node --no-headers 2>/dev/null | grep -v Disabled |grep -i -v Not | wc -l", ssh=False)
            AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas={}".format(nodeNum), ssh=False)
            AOS.run_ssh_command("oc scale rc/logging-fluentd-1 --replicas={}".format(nodeNum), ssh=False)
-
-        AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
+           AOS.run_ssh_command("oc scale dc/logging-curator --replicas=1", ssh=False)
+           AOS.run_ssh_command("oc scale rc/logging-curator-1 --replicas=1", ssh=False)
+           AOS.run_ssh_command("oc scale dc/logging-curator-ops --replicas=1", ssh=False)
+           AOS.run_ssh_command("oc scale rc/logging-curator-ops-1 --replicas=1", ssh=False)
 
         cprint("Success!","green")
 
