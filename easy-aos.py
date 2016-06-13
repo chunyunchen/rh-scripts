@@ -495,7 +495,7 @@ class AOS(object):
         dcNum = 4
         if "true" in AOS.enableKibanaOps:
            dcNum += 3
-        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd|logging-kibana|logging-es-\w+|logging-curator)", dstNum=dcNum)
+        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator\s+|logging-curator-ops\s+|logging-kibana-ops\s+)", dstNum=dcNum)
 
         #if AOS.imageVersion <= "3.2.0" or "latest" in AOS.imageVersion or "v" in AOS.imageVersion:
         if AOS.imageVersion <= "3.2.1":
