@@ -610,9 +610,9 @@ class AOS(object):
     @staticmethod
     def pull_metrics_and_logging_images():
         cprint("Pulling down metrics and logging images form DockerHub registry...",'blue')
-        imagePrefixs = {"openshift/origin-","registry.access.redhat.com/openshift3/"}
-        images = {"metrics-hawkular-metrics","metrics-heapster","metrics-cassandra","metrics-deployer",\
-                  "logging-kibana","logging-fluentd","logging-elasticsearch","logging-auth-proxy","logging-deployment"}
+        imagePrefixs = ["openshift/origin-","registry.access.redhat.com/openshift3/"]
+        images = ["metrics-hawkular-metrics","metrics-heapster","metrics-cassandra","metrics-deployer",\
+                  "logging-kibana","logging-fluentd","logging-elasticsearch","logging-auth-proxy","logging-deployment"]
         cmd = ';'.join([' '.join(['docker pull',imagePrefix+image]) for imagePrefix in imagePrefixs for image in images])
         AOS.run_ssh_command(cmd)
 
