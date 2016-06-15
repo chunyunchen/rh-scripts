@@ -53,7 +53,7 @@ class AOS(object):
     enableKibanaOps=""
     ESRam=""
     ESClusterSize=1
-    ESPVCSize = 10
+    PVCSize = 10
     EFKDeployer=""
     RegistryQEToken = ""
     TokenUser = ""
@@ -92,9 +92,9 @@ class AOS(object):
         config.set('image','image_prefix','openshift/origin-')
         config.set('image','image_version','latest')
         config.set('image','enable_pv','false')
-        config.set('image','elastic_ram','1024M')
+        config.set('image','elastic_ram','1G')
         config.set('image','elastic_cluster_size','1')
-        config.set('image', 'elastic_pvc_size', '10')
+        config.set('image', 'pvc_size', '10')
         config.set('image', 'registryqe_token','')
         config.set('image', 'token_user', 'chunchen')
         config.set('image', 'deploy_mode', 'deploy')
@@ -139,7 +139,7 @@ class AOS(object):
         AOS.deployMode = config.get("image", "deploy_mode")
         AOS.TokenUserEMail = config.get("image","token_user_email")
         AOS.ESClusterSize = config.get("image","elastic_cluster_size")
-        AOS.ESPVCSize = config.get("image","elastic_pvc_size")
+        AOS.PVCSize = config.get("image","pvc_size")
         AOS.EFKDeployer = config.get("image","efk_deployer")
 
         if AOS.osUser:
@@ -411,6 +411,13 @@ class AOS(object):
         AOS.restart_master_server()
         cprint("Success!","green")
 
+    @staticmethod
+    def make_para_list(paraMap):
+        para_list = []
+        for p_name, p_value in paraMap.items():
+            para_list.append(p_name+"="+p_value)
+        return para_list
+
     @classmethod
     def start_metrics_stack(cls):
         AOS.login_server()
@@ -422,7 +429,16 @@ class AOS(object):
            AOS.do_permission("add-role-to-user","edit", user="system:serviceaccount:%s:metrics-deployer" % AOS.osProject)
            AOS.run_ssh_command("oc secrets new metrics-deployer nothing=/dev/null",ssh=False)
         subdomain = AOS.get_subdomain()
-        AOS.run_ssh_command("oc new-app metrics-deployer-template -p HAWKULAR_METRICS_HOSTNAME=%s.%s,IMAGE_PREFIX=%s,IMAGE_VERSION=%s,USE_PERSISTENT_STORAGE=%s,MASTER_URL=%s,CASSANDRA_PV_SIZE=5Gi,MODE=%s" % (AOS.hawkularMetricsAppname,subdomain,AOS.imagePrefix,AOS.imageVersion,AOS.enablePV,AOS.MasterURL,AOS.deployMode), ssh=False)
+        paraList = AOS.make_para_list({'HAWKULAR_METRICS_HOSTNAME':AOS.hawkularMetricsAppname+'.'+subdomain,\
+                                     'IMAGE_PREFIX':AOS.imagePrefix,\
+                                     'IMAGE_VERSION':AOS.imageVersion,\
+                                     'USE_PERSISTENT_STORAGE':AOS.enablePV,\
+                                     'MASTER_URL':AOS.MasterURL,\
+                                     'CASSANDRA_PV_SIZE':AOS.PVCSize})
+        if AOS.imageVersion > "3.2.1":
+           paraList.extend(AOS.make_para_list({'MODE':AOS.deployMode}))
+
+        AOS.run_ssh_command("oc new-app metrics-deployer-template -p {}".format(','.join(paraList)), ssh=False)
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*Running.*")
         cprint("Success!","green")
 
@@ -455,6 +471,16 @@ class AOS(object):
         AOS.run_ssh_command("oc secrets new logging-deployer nothing=/dev/null",ssh=False)
         AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-elasticsearch".format(AOS.osProject))
 
+        paraList = AOS.make_para_list({'ENABLE_OPS_CLUSTER':AOS.enableKibanaOps,\
+                                     'IMAGE_PREFIX':AOS.imagePrefix,\
+                                     'IMAGE_VERSION':AOS.imageVersion,\
+                                     'KIBANA_HOSTNAME':AOS.kibanaAppname+'.'+subdomain,\
+                                     'MASTER_URL':AOS.MasterURL,\
+                                     'PUBLIC_MASTER_URL':AOS.MasterURL,\
+                                     'ES_INSTANCE_RAM':AOS.ESRam,\
+                                     'ES_CLUSTER_SIZE':AOS.ESClusterSize,\
+                                     'MODE':AOS.deployMode,\
+                                     'KIBANA_OPS_HOSTNAME':AOS.kibanaOpsAppname+'.'+subdomain})
         #if AOS.imageVersion > "3.2.0" and "latest" not in AOS.imageVersion and "v" not in AOS.imageVersion:
         if AOS.imageVersion > "3.2.1":
            AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
@@ -464,6 +490,7 @@ class AOS(object):
            AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
            AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
            AOS.run_ssh_command("oc label node --all logging-infra-fluentd=true --overwrite", ssh=False)
+           paraList.extend(AOS.make_para_list({'ES_PVC_SIZE':AOS.PVCSize,'ES_PVC_PREFIX':'es_pv_'}))
         else:
            AOS.delete_oauth()
            AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -', ssh=False)
@@ -473,11 +500,7 @@ class AOS(object):
            #AOS.do_permission("add-cluster-role-to-user","cluster-admin",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
            #AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
 
-        cmd = "oc new-app logging-deployer-template -p ENABLE_OPS_CLUSTER={ops},IMAGE_PREFIX={prefix},KIBANA_HOSTNAME={kName}.{subdomain},KIBANA_OPS_HOSTNAME={opsName}.{subdomain},PUBLIC_MASTER_URL={master},ES_INSTANCE_RAM={ram},ES_CLUSTER_SIZE={size},IMAGE_VERSION={version},MASTER_URL={master},MODE={mode}"\
-                                                                                         .format(ops=AOS.enableKibanaOps,prefix=AOS.imagePrefix,kName=AOS.kibanaAppname,\
-                                                                                          subdomain=subdomain,opsName=AOS.kibanaOpsAppname,
-                                                                                          master=AOS.MasterURL,ram=AOS.ESRam,\
-                                                                                          size=AOS.ESClusterSize,version=AOS.imageVersion,mode=AOS.deployMode)
+        cmd = "oc new-app logging-deployer-template -p {}".format(','.join(paraList))
         AOS.run_ssh_command(cmd,ssh=False)
         AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-deployer.+Completed", dstNum=1)
 
@@ -546,7 +569,13 @@ class AOS(object):
         AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:apiman-console" % AOS.osProject)
         AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:apiman-gateway" % AOS.osProject)
         subdomain = AOS.get_subdomain()
-        AOS.run_ssh_command("oc new-app apiman-deployer-template -p GATEWAY_HOSTNAME=gateway.{subdm},CONSOLE_HOSTNAME=console.{subdm},PUBLIC_MASTER_URL={osdm},ES_CLUSTER_SIZE=1,IMAGE_PREFIX={imgpre},IMAGE_VERSION={imgtag}".format(subdm=subdomain,osdm=AOS.MasterURL,imgpre=imagePrefix,imgtag=AOS.imageVersion), ssh=False)
+        paraList = AOS.make_para_list({'GATEWAY_HOSTNAME':'gateway.'+subdomain,\
+                                     'CONSOLE_HOSTNAME':'console.'+subdomain,\
+                                     'IMAGE_PREFIX':AOS.imagePrefix,\
+                                     'IMAGE_VERSION':AOS.imageVersion,\
+                                     'PUBLIC_MASTER_URL':AOS.MasterURL,\
+                                     'ES_CLUSTER_SIZE':AOS.ESClusterSize})
+        AOS.run_ssh_command("oc new-app apiman-deployer-template -p {}".format(','.join(paraList)), ssh=False)
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r"[apiman\-console|apiman\-curator|apiman\-es|apiman\-gateway].*Running.*", 4)
         cprint("Success!","green")
         cprint("Access APIMan Console via browser: ~/link.html", "green")
