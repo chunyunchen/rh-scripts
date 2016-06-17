@@ -539,8 +539,12 @@ class AOS(object):
         dirContent = AOS.run_ssh_command("test -d {};echo $?".format(repoName))
         if "0" == dirContent.strip():
            AOS.run_ssh_command("pushd {} && git pull && popd".format(repoName))
+           if "logging" in repoName:
+               AOS.run_ssh_command("pushd {}/deployer/common && git pull && popd".format(repoName))
         else:
            AOS.run_ssh_command("git clone https://github.com/openshift/{}.git".format(repoName))
+           if "logging" in repoName:
+               AOS.run_ssh_command("git clone https://github.com/openshift/origin-integration-common.git {}/deployer/common".format(repoName))
 
     @staticmethod
     def clean_apiman():
