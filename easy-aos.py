@@ -159,7 +159,7 @@ class AOS(object):
             if value and aosVar: 
                setattr(AOS, aosVar, value)
 
-        AOS.MasterURL =  "https://{}".format(AOS.master)
+        AOS.MasterURL =  "https://{}:8443".format(AOS.master)
 
     @staticmethod
     def echo_user_info():
@@ -198,7 +198,7 @@ class AOS(object):
     def set_ssh_master():
         output = AOS.run_ssh_command("which oadm")
         if not output:
-           ssh_master = AOS.run_ssh_command("grep loginURL /etc//origin/master/master-config.yaml | awk -F'/' '{print $3}'")
+           ssh_master = AOS.run_ssh_command("grep loginURL /etc/origin/master/master-config.yaml | awk -F'/' '{print $3}'")
            cprint(ssh_master)
            AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, ssh_master.strip())
            AOS.ScpFileFromMaster = "scp -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s:" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, ssh_master.strip())
@@ -329,7 +329,7 @@ class AOS(object):
         cprint('Log into OpenShift...','blue')
         AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.MasterURL,AOS.osUser,AOS.osPasswd),ssh=False)
         cprint('Try to log into OpenShift again...','blue')
-        AOS.MasterURL = "https://{}:8443".format(AOS.master)
+        AOS.MasterURL = "https://{}".format(AOS.master)
         AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.MasterURL,AOS.osUser,AOS.osPasswd),ssh=False)
 
         AOS.add_project()
@@ -398,7 +398,7 @@ class AOS(object):
         AOS.run_ssh_command(add_weburl_cmd)
 
     @classmethod
-    def restart_master_server(cls):
+    def restart_ose_server(cls):
         master_server_name = AOS.run_ssh_command("systemctl list-unit-files|grep atomic-openshift-master | awk '{print $1}'")
         if master_server_name:
            AOS.run_ssh_command("systemctl restart {}".format(master_server_name))
@@ -408,7 +408,10 @@ class AOS(object):
     @classmethod
     def enable_logging_metircs_web_console(cls):
         AOS.add_weburl_for_logging_and_metrics()
-        AOS.restart_master_server()
+        if "amazonaws" in AOS.master:
+           AOS.restart_origin_server()
+        else:
+           AOS.restart_ose_server()
         cprint("Success!","green")
 
     @staticmethod
@@ -451,7 +454,7 @@ class AOS(object):
         AOS.run_ssh_command("oc delete all,sa --selector logging-infra=support", ssh=False)
         AOS.run_ssh_command("oc delete sa logging-deployer", ssh=False)
         AOS.run_ssh_command("oc delete secret logging-deployer logging-fluentd logging-elasticsearch logging-es-proxy logging-kibana logging-kibana-proxy logging-kibana-ops-proxy", ssh=False)
-        AOS.run_ssh_command("oc delete ClusterRole daemonset-admin -n openshift && oc delete ClusterRole oauth-editor -n openshift")
+        AOS.run_ssh_command("oc delete ClusterRole daemonset-admin -n openshift && oc delete ClusterRole oauth-editor -n openshift && oc delete oauthclients kibana-proxy -n openshift")
 
     @staticmethod
     def set_mode_for_logging():
@@ -490,7 +493,8 @@ class AOS(object):
            AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
            AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
            AOS.run_ssh_command("oc label node --all logging-infra-fluentd=true --overwrite", ssh=False)
-           paraList.extend(AOS.make_para_list({'ES_PVC_SIZE':AOS.PVCSize,'ES_PVC_PREFIX':'es_pv_'}))
+           if "true" in AOS.enablePV:
+              paraList.extend(AOS.make_para_list({'ES_PVC_SIZE':AOS.PVCSize,'ES_PVC_PREFIX':'es-pv-'}))
         else:
            AOS.delete_oauth()
            AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -', ssh=False)
@@ -516,6 +520,8 @@ class AOS(object):
         AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
 
         dcNum = 4
+        if AOS.imageVersion > "3.2.1":
+           dcNum = 3
         if "true" in AOS.enableKibanaOps:
            dcNum += 3
         AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator\s+|logging-curator-ops\s+|logging-kibana-ops\s+)", dstNum=dcNum)
@@ -592,24 +598,32 @@ class AOS(object):
           return "openshift"
        return cmd
 
-    @classmethod
-    def start_origin_openshift(cls):
-        cprint("Starting OpenShift Service...","blue")
+    @staticmethod
+    def restart_origin_server():
         openshift = "/data/src/github.com/openshift/origin/_output/local/bin/linux/amd64/openshift"
-        AOS.run_ssh_command("%s start --public-master=%s:8443 --write-config=/etc/origin" % (AOS.sudo_hack(openshift), AOS.master))
         outputs = AOS.run_ssh_command("hostname")
         nodeConfigPath = '/etc/origin/node-' + outputs.strip()
         nodeConfig = os.path.join(nodeConfigPath,"node-config.yaml")
         masterConfig = os.path.join(AOS.masterConfigRoot, AOS.masterConfigFile)
         kubeConfig = os.path.join(AOS.masterConfigRoot, AOS.kubeConfigFile)
-        AOS.run_ssh_command("%s -i -e '/loggingPublicURL:/d' -e '/metricsPublicURL:/d' %s" % (AOS.sudo_hack("sed"),masterConfig))
-        AOS.run_ssh_command("%s openshift" % AOS.sudo_hack("killall"))
-        AOS.run_ssh_command("echo export KUBECONFIG={kube} >> ~/.bashrc; {chd} o+rx {kube}; nohup {os} start --node-config={node} --master-config={master} &> openshift.log &".format(chd=AOS.sudo_hack("chmod"),os=AOS.sudo_hack(openshift),node=nodeConfig,master=masterConfig,kube=kubeConfig))
-        AOS.resource_validate("oc get projects", r"Active", enableSsh=True)
-
-        # For automation cases related admin role
         master = AOS.master.replace('.','-')
-        AOS.run_ssh_command("oc config use-context default/%s:8443/system:admin && %s -p /root/.kube && %s /etc/origin/master/admin.kubeconfig /root/.kube/config" % (master,AOS.sudo_hack('mkdir'),AOS.sudo_hack('cp')))
+
+        killRs = AOS.run_ssh_command("%s openshift; echo $?" % AOS.sudo_hack("killall"))
+        if not "0" in killRs:
+           AOS.run_ssh_command("%s start --public-master=%s:8443 --write-config=/etc/origin" % (AOS.sudo_hack(openshift), AOS.master))
+           AOS.run_ssh_command("echo export KUBECONFIG={kube} >> ~/.bashrc; {chd} o+rx {kube}".format(chd=AOS.sudo_hack("chmod"),kube=kubeConfig))
+
+        AOS.run_ssh_command("nohup {os} start --node-config={node} --master-config={master} &> openshift.log &".format(os=AOS.sudo_hack(openshift),node=nodeConfig,master=masterConfig))
+        if not "0" in killRs:
+           AOS.resource_validate("oc get projects", r"Active", enableSsh=True)
+           # For automation cases related admin role
+           AOS.run_ssh_command("oc config use-context default/%s:8443/system:admin && %s -p /root/.kube && %s /etc/origin/master/admin.kubeconfig /root/.kube/config"\
+                            % (master,AOS.sudo_hack('mkdir'),AOS.sudo_hack('cp')))
+
+    @classmethod
+    def start_origin_openshift(cls):
+        cprint("Starting OpenShift Service...","blue")
+        AOS.restart_origin_server()
         outputs = AOS.run_ssh_command("oc get pods -n default")
         allRunningPods = re.findall(r'docker-registry.*Running.*|router-1.*Running.*', outputs)
         if 0 == len(allRunningPods):
