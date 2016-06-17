@@ -541,10 +541,12 @@ class AOS(object):
            AOS.run_ssh_command("pushd {} && git pull && popd".format(repoName))
            if "logging" in repoName:
                AOS.run_ssh_command("pushd {}/deployer/common && git pull && popd".format(repoName))
+               AOS.run_ssh_command("pushd {}/deployer/common/openshift-auth-proxy && git pull && popd".format(repoName))
         else:
            AOS.run_ssh_command("git clone https://github.com/openshift/{}.git".format(repoName))
            if "logging" in repoName:
                AOS.run_ssh_command("git clone https://github.com/openshift/origin-integration-common.git {}/deployer/common".format(repoName))
+               AOS.run_ssh_command("git clone https://github.com/fabric8io/openshift-auth-proxy.git {}/deployer/common/openshift-auth-proxy".format(repoName))
 
     @staticmethod
     def clean_apiman():
