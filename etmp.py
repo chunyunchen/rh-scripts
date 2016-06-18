@@ -457,7 +457,7 @@ class AOS(object):
 
         #if AOS.imageVersion > "3.2.0" and "latest" not in AOS.imageVersion and "v" not in AOS.imageVersion:
         if AOS.imageVersion > "3.2.0":
-           AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
+      #     AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
            AOS.do_permission("add-role-to-user","edit",user="--serviceaccount logging-deployer")
            AOS.do_permission("add-role-to-user","daemonset-admin",user="--serviceaccount logging-deployer")
            AOS.do_permission("add-cluster-role-to-user","oauth-editor",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
