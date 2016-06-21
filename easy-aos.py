@@ -326,11 +326,13 @@ class AOS(object):
     @classmethod
     def login_server(cls):
         AOS.loginedOnce()
-        cprint('Log into OpenShift...','blue')
-        AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.MasterURL,AOS.osUser,AOS.osPasswd),ssh=False)
-        cprint('Try to log into OpenShift again...','blue')
-        AOS.MasterURL = "https://{}".format(AOS.master)
-        AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.MasterURL,AOS.osUser,AOS.osPasswd),ssh=False)
+        try:
+           cprint('Log into OpenShift...','blue')
+           AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.MasterURL,AOS.osUser,AOS.osPasswd),ssh=False)
+        except (Exception):
+           cprint('Try to log into OpenShift again...','blue')
+           AOS.MasterURL = "https://{}".format(AOS.master)
+           AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.MasterURL,AOS.osUser,AOS.osPasswd),ssh=False)
 
         AOS.add_project()
 
@@ -347,6 +349,9 @@ class AOS(object):
         if 0 < len(oauth):
             AOS.run_ssh_command("oc delete oauthclients kibana-proxy", ssh=False)
             AOS.resource_validate("oc get oauthclients",r"kibana-proxy",dstNum=0)
+            AOS.run_ssh_command("oc delete oauthclients kibana-proxy -n openshift", ssh=False)
+            AOS.resource_validate("oc get oauthclients",r"kibana-proxy -n openshift",dstNum=0)
+
 
     @classmethod
     def set_annotation(cls, imageStreams):
@@ -454,7 +459,7 @@ class AOS(object):
         AOS.run_ssh_command("oc delete all,sa --selector logging-infra=support", ssh=False)
         AOS.run_ssh_command("oc delete sa logging-deployer", ssh=False)
         AOS.run_ssh_command("oc delete secret logging-deployer logging-fluentd logging-elasticsearch logging-es-proxy logging-kibana logging-kibana-proxy logging-kibana-ops-proxy", ssh=False)
-        AOS.run_ssh_command("oc delete ClusterRole daemonset-admin -n openshift && oc delete ClusterRole oauth-editor -n openshift && oc delete oauthclients kibana-proxy -n openshift")
+        AOS.run_ssh_command("oc delete ClusterRole daemonset-admin -n openshift && oc delete ClusterRole oauth-editor -n openshift")
 
     @staticmethod
     def set_mode_for_logging():
