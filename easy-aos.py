@@ -487,7 +487,6 @@ class AOS(object):
                                      'PUBLIC_MASTER_URL':AOS.MasterURL,\
                                      'ES_INSTANCE_RAM':AOS.ESRam,\
                                      'ES_CLUSTER_SIZE':AOS.ESClusterSize,\
-                                     'MODE':AOS.deployMode,\
                                      'KIBANA_OPS_HOSTNAME':AOS.kibanaOpsAppname+'.'+subdomain})
         #if AOS.imageVersion > "3.2.0" and "latest" not in AOS.imageVersion and "v" not in AOS.imageVersion:
         if AOS.imageVersion > "3.2.1":
@@ -499,7 +498,7 @@ class AOS(object):
            AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
            AOS.run_ssh_command("oc label node --all logging-infra-fluentd=true --overwrite", ssh=False)
            if "true" in AOS.enablePV:
-              paraList.extend(AOS.make_para_list({'ES_PVC_SIZE':AOS.PVCSize,'ES_PVC_PREFIX':'es-pv-'}))
+              paraList.extend(AOS.make_para_list({'ES_PVC_SIZE':AOS.PVCSize,'ES_PVC_PREFIX':'es-pv-','MODE':AOS.deployMode}))
         else:
            AOS.delete_oauth()
            AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -', ssh=False)
@@ -524,11 +523,13 @@ class AOS(object):
 
         AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
 
-        dcNum = 4
+        dcNum = 3
         if AOS.imageVersion > "3.2.1":
-           dcNum = 3
+           dcNum = 4
         if "true" in AOS.enableKibanaOps:
-           dcNum += 3
+           dcNum += 2
+           if AOS.imageVersion > "3.2.1":
+              dcNum += 1
         AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator\s+|logging-curator-ops\s+|logging-kibana-ops\s+)", dstNum=dcNum)
 
         #if AOS.imageVersion <= "3.2.0" or "latest" in AOS.imageVersion or "v" in AOS.imageVersion:
@@ -536,6 +537,7 @@ class AOS(object):
            nodeNum = AOS.run_ssh_command("oc get node --no-headers 2>/dev/null | grep -v Disabled |grep -i -v Not | wc -l", ssh=True)
            AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas={}".format(nodeNum), ssh=False)
            AOS.run_ssh_command("oc scale rc/logging-fluentd-1 --replicas={}".format(nodeNum), ssh=False)
+        else:
            AOS.run_ssh_command("oc scale dc/logging-curator --replicas=1", ssh=False)
            AOS.run_ssh_command("oc scale rc/logging-curator-1 --replicas=1", ssh=False)
            AOS.run_ssh_command("oc scale dc/logging-curator-ops --replicas=1", ssh=False)
