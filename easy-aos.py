@@ -488,7 +488,6 @@ class AOS(object):
                                      'ES_INSTANCE_RAM':AOS.ESRam,\
                                      'ES_CLUSTER_SIZE':AOS.ESClusterSize,\
                                      'KIBANA_OPS_HOSTNAME':AOS.kibanaOpsAppname+'.'+subdomain})
-        #if AOS.imageVersion > "3.2.0" and "latest" not in AOS.imageVersion and "v" not in AOS.imageVersion:
         if AOS.imageVersion > "3.2.1":
            AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
            AOS.do_permission("add-role-to-user","edit",user="--serviceaccount logging-deployer")
@@ -505,6 +504,8 @@ class AOS(object):
            AOS.do_permission("add-role-to-user","edit",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
            AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
            AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+           if AOS.imageVersion == "3.2.1":
+              paraList.extend({'MODE':AOS.deployMode})
            #AOS.do_permission("add-cluster-role-to-user","cluster-admin",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
            #AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
 
@@ -512,7 +513,6 @@ class AOS(object):
         AOS.run_ssh_command(cmd,ssh=False)
         AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-deployer.+Completed", dstNum=1)
 
-        #if AOS.imageVersion <= "3.2.0" or "latest" in AOS.imageVersion or "v" in AOS.imageVersion:
         if AOS.imageVersion <= "3.2.1":
            AOS.run_ssh_command("oc process logging-support-template -n {project} -v IMAGE_VERSION={version}| oc create -n {project} -f -".format(project=AOS.osProject,version=AOS.imageVersion), ssh=False)
            imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
@@ -532,7 +532,6 @@ class AOS(object):
               dcNum += 1
         AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator\s+|logging-curator-ops\s+|logging-kibana-ops\s+)", dstNum=dcNum)
 
-        #if AOS.imageVersion <= "3.2.0" or "latest" in AOS.imageVersion or "v" in AOS.imageVersion:
         if AOS.imageVersion <= "3.2.1":
            nodeNum = AOS.run_ssh_command("oc get node --no-headers 2>/dev/null | grep -v Disabled |grep -i -v Not | wc -l", ssh=True)
            AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas={}".format(nodeNum), ssh=False)
