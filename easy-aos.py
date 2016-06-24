@@ -443,7 +443,7 @@ class AOS(object):
                                      'USE_PERSISTENT_STORAGE':AOS.enablePV,\
                                      'MASTER_URL':AOS.MasterURL,\
                                      'CASSANDRA_PV_SIZE':AOS.PVCSize})
-        if AOS.imageVersion > "3.2.1":
+        if AOS.imageVersion >= "3.2.1":
            paraList.extend(AOS.make_para_list({'MODE':AOS.deployMode}))
 
         AOS.run_ssh_command("oc new-app metrics-deployer-template -p {}".format(','.join(paraList)), ssh=False)
