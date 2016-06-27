@@ -285,7 +285,7 @@ class AOS(object):
         interval = 6
         timeout = iloop * interval
         output = ""
-        while dstNum != len(re.findall(reStr,output)) and 0 < iloop:
+        while dstNum > len(re.findall(reStr,output)) and 0 < iloop:
             time.sleep(interval)
             iloop -= 1
             output = AOS.run_ssh_command(cmd,ssh=enableSsh)
