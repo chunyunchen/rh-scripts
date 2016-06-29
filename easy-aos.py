@@ -488,7 +488,7 @@ class AOS(object):
                                      'ES_INSTANCE_RAM':AOS.ESRam,\
                                      'ES_CLUSTER_SIZE':AOS.ESClusterSize,\
                                      'KIBANA_OPS_HOSTNAME':AOS.kibanaOpsAppname+'.'+subdomain})
-        if AOS.imageVersion > "3.2.1":
+        if AOS.imageVersion > "3.2.1" and AOS.imageVersion < "3.3":
            AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
            AOS.do_permission("add-role-to-user","edit",user="--serviceaccount logging-deployer")
            AOS.do_permission("add-role-to-user","daemonset-admin",user="--serviceaccount logging-deployer")
