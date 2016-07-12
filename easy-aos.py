@@ -453,6 +453,7 @@ class AOS(object):
     @classmethod
     def clean_logging_objects(cls):
         cprint("Cleanup resources related to logging stack...",'blue')
+        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         AOS.run_ssh_command("oc delete all --selector logging-infra=kibana", ssh=False)
         AOS.run_ssh_command("oc delete all --selector logging-infra=fluentd", ssh=False)
         AOS.run_ssh_command("oc delete all --selector logging-infra=elasticsearch", ssh=False)
@@ -460,6 +461,7 @@ class AOS(object):
         AOS.run_ssh_command("oc delete sa logging-deployer", ssh=False)
         AOS.run_ssh_command("oc delete secret logging-deployer logging-fluentd logging-elasticsearch logging-es-proxy logging-kibana logging-kibana-proxy logging-kibana-ops-proxy", ssh=False)
         AOS.run_ssh_command("oc delete ClusterRole daemonset-admin -n openshift && oc delete ClusterRole oauth-editor -n openshift")
+        AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
 
     @staticmethod
     def set_mode_for_logging():
@@ -472,12 +474,10 @@ class AOS(object):
     def start_logging_stack(cls):
         AOS.set_mode_for_logging()
         AOS.login_server()
-        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         cprint("Start deploying logging stack pods...",'blue')
         AOS.clean_logging_objects()
         subdomain = AOS.get_subdomain()
         AOS.run_ssh_command("oc secrets new logging-deployer nothing=/dev/null",ssh=False)
-        AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-elasticsearch".format(AOS.osProject))
 
         paraList = AOS.make_para_list({'ENABLE_OPS_CLUSTER':AOS.enableKibanaOps,\
                                      'IMAGE_PREFIX':AOS.imagePrefix,\
@@ -488,7 +488,15 @@ class AOS(object):
                                      'ES_INSTANCE_RAM':AOS.ESRam,\
                                      'ES_CLUSTER_SIZE':AOS.ESClusterSize,\
                                      'KIBANA_OPS_HOSTNAME':AOS.kibanaOpsAppname+'.'+subdomain})
-        if AOS.imageVersion > "3.2.1":
+        if AOS.imageVersion >= "3.3.0":
+           AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
+           AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
+           AOS.do_permission("add-cluster-role-to-user","oauth-editor",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
+           AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+           AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
+        elif AOS.imageVersion > "3.2.1" and AOS.imageVersion < "3.3.0":
+           AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
+           AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-elasticsearch".format(AOS.osProject))
            AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
            AOS.do_permission("add-role-to-user","edit",user="--serviceaccount logging-deployer")
            AOS.do_permission("add-role-to-user","daemonset-admin",user="--serviceaccount logging-deployer")
@@ -499,7 +507,9 @@ class AOS(object):
            if "true" in AOS.enablePV:
               paraList.extend(AOS.make_para_list({'ES_PVC_SIZE':AOS.PVCSize,'ES_PVC_PREFIX':'es-pv-','MODE':AOS.deployMode}))
         else:
+           AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
            AOS.delete_oauth()
+           AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-elasticsearch".format(AOS.osProject))
            AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -', ssh=False)
            AOS.do_permission("add-role-to-user","edit",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
            AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
