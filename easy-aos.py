@@ -488,7 +488,7 @@ class AOS(object):
                                      'ES_INSTANCE_RAM':AOS.ESRam,\
                                      'ES_CLUSTER_SIZE':AOS.ESClusterSize,\
                                      'KIBANA_OPS_HOSTNAME':AOS.kibanaOpsAppname+'.'+subdomain})
-        if AOS.imageVersion > "3.2.1" and AOS.imageVersion < "3.3":
+        if AOS.imageVersion > "3.2.1":
            AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
            AOS.do_permission("add-role-to-user","edit",user="--serviceaccount logging-deployer")
            AOS.do_permission("add-role-to-user","daemonset-admin",user="--serviceaccount logging-deployer")
@@ -552,13 +552,13 @@ class AOS(object):
         if "0" == dirContent.strip():
            AOS.run_ssh_command("pushd {} && git pull && popd".format(repoName))
            if "logging" in repoName:
-               AOS.run_ssh_command("pushd {}/deployer/common && git pull && popd".format(repoName))
-               AOS.run_ssh_command("pushd {}/deployer/common/openshift-auth-proxy && git pull && popd".format(repoName))
+           #    AOS.run_ssh_command("pushd {}/deployer/common && git pull && popd".format(repoName))
+               AOS.run_ssh_command("pushd {}/kibana-proxy && git pull && popd".format(repoName))
         else:
            AOS.run_ssh_command("git clone https://github.com/openshift/{}.git".format(repoName))
            if "logging" in repoName:
-               AOS.run_ssh_command("git clone https://github.com/openshift/origin-integration-common.git {}/deployer/common".format(repoName))
-               AOS.run_ssh_command("git clone https://github.com/fabric8io/openshift-auth-proxy.git {}/deployer/common/openshift-auth-proxy".format(repoName))
+           #    AOS.run_ssh_command("git clone https://github.com/openshift/origin-integration-common.git {}/deployer/common".format(repoName))
+               AOS.run_ssh_command("git clone https://github.com/fabric8io/openshift-auth-proxy.git {}/kibana-proxy".format(repoName))
 
     @staticmethod
     def clean_apiman():
