@@ -480,7 +480,7 @@ class AOS(object):
         subdomain = AOS.get_subdomain()
         AOS.run_ssh_command("oc secrets new logging-deployer nothing=/dev/null",ssh=False)
 
-        paraList = AOS.make_para_list({'ENABLE_OPS_CLUSTER':AOS.enableKibanaOps\
+        paraList = AOS.make_para_list({'ENABLE_OPS_CLUSTER':AOS.enableKibanaOps,\
                                      'IMAGE_PREFIX':AOS.imagePrefix,\
                                      'IMAGE_VERSION':AOS.imageVersion,\
                                      'KIBANA_HOSTNAME':AOS.kibanaAppname+'.'+subdomain,\
@@ -495,7 +495,7 @@ class AOS(object):
            AOS.do_permission("add-cluster-role-to-user","oauth-editor",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
            AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
            AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
-           AOS.run_ssh_command('oc create configmap logging-deployer  --from-literal kibana-hostname={}.{} --from-literal public-master-url={} --from-literal es-cluster-size={}'.format(AOS.kibanaAppname,subdomain,AOS.MasterURL,AOS.ESClusterSize), ssh=False)
+           AOS.run_ssh_command("oc create configmap logging-deployer  --from-literal kibana-hostname={}.{} --from-literal public-master-url={} --from-literal es-cluster-size={}".format(AOS.kibanaAppname,subdomain,AOS.MasterURL,AOS.ESClusterSize), ssh=False)
         elif AOS.imageVersion > "3.2.1" and AOS.imageVersion < "3.3.0":
            AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
            AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-elasticsearch".format(AOS.osProject))
