@@ -54,6 +54,7 @@ class AOS(object):
     ESRam=""
     ESClusterSize=1
     PVCSize = 10
+    cassandraNodes = 1
     EFKDeployer=""
     RegistryQEToken = ""
     TokenUser = ""
@@ -100,6 +101,7 @@ class AOS(object):
         config.set('image', 'deploy_mode', 'deploy')
         config.set('image', 'token_user_email', 'chunchen@redhat.com')
         config.set('image','efk_deployer','https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployer/deployer.yaml')
+        config.set('image', 'cassandra_nodes','3')
 
         with open(AOS.osConfigFile, 'wb') as defaultconfig:
            config.write(defaultconfig)
@@ -141,6 +143,7 @@ class AOS(object):
         AOS.ESClusterSize = config.get("image","elastic_cluster_size")
         AOS.PVCSize = config.get("image","pvc_size")
         AOS.EFKDeployer = config.get("image","efk_deployer")
+        AOS.cassandraNodes = config.get("image","cassandra_nodes")
 
         if AOS.osUser:
            AOS.osProject = re.match(r'\w+',AOS.osUser).group(0)
@@ -442,6 +445,7 @@ class AOS(object):
                                      'IMAGE_VERSION':AOS.imageVersion,\
                                      'USE_PERSISTENT_STORAGE':AOS.enablePV,\
                                      'MASTER_URL':AOS.MasterURL,\
+                                     'CASSANDRA_NODES': AOS.cassandraNodes,\
                                      'CASSANDRA_PV_SIZE':AOS.PVCSize})
         if AOS.imageVersion >= "3.2.1":
            paraList.extend(AOS.make_para_list({'MODE':AOS.deployMode}))

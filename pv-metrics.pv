@@ -24,6 +24,7 @@ objects:
       storage: ${SIZE}Gi
     accessModes:
       - ReadWriteOnce
+      - ReadWriteMany
     persistentVolumeReclaimPolicy: Recycle
 parameters:
 -
