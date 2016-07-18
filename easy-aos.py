@@ -162,7 +162,7 @@ class AOS(object):
             if value and aosVar: 
                setattr(AOS, aosVar, value)
 
-        AOS.MasterURL =  "https://{}:8443".format(AOS.master)
+        AOS.MasterURL =  "https://{}:443".format(AOS.master)
 
     @staticmethod
     def echo_user_info():
@@ -396,6 +396,7 @@ class AOS(object):
         AOS.run_ssh_command("oc secrets add aggregated-logging-elasticsearch mysecret --for=pull", ssh=False)
         AOS.run_ssh_command("oc secrets add aggregated-logging-fluentd mysecret --for=pull", ssh=False)
         AOS.run_ssh_command("oc secrets add aggregated-logging-kibana mysecret --for=pull", ssh=False)
+        AOS.run_ssh_command("oc secrets add metrics-deployer mysecret --for=pull", ssh=False)
 
     @classmethod
     def add_weburl_for_logging_and_metrics(cls):
@@ -434,6 +435,8 @@ class AOS(object):
         AOS.login_server()
         cprint("{} metrics stack...".format(AOS.deployMode),'blue')
        # AOS.run_ssh_command("oc create -f %s" % AOS.SAMetricsDeployer, ssh=False)
+      #  if "registry.qe" in AOS.imagePrefix:
+      #        AOS.add_pull_secret_for_registryqe_repo()
         if "deploy" == AOS.deployMode:
            AOS.run_ssh_command("oc create serviceaccount metrics-deployer",ssh=False)
            AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:heapster" % AOS.osProject)
