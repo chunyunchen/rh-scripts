@@ -162,7 +162,7 @@ class AOS(object):
             if value and aosVar: 
                setattr(AOS, aosVar, value)
 
-        AOS.MasterURL =  "https://{}:443".format(AOS.master)
+        AOS.MasterURL =  "https://{}:8443".format(AOS.master)
 
     @staticmethod
     def echo_user_info():
@@ -529,6 +529,10 @@ class AOS(object):
            #AOS.do_permission("add-cluster-role-to-user","cluster-admin",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
            #AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
 
+        if AOS.imageVersion <= "3.2.1":
+           if "registry.qe" in AOS.imagePrefix:
+              AOS.add_pull_secret_for_registryqe_repo()
+
         if AOS.imageVersion < "3.3.0":
            cmd = "oc new-app logging-deployer-template -p {}".format(','.join(paraList))
         else:
@@ -539,9 +543,9 @@ class AOS(object):
         if AOS.imageVersion <= "3.2.1":
            AOS.run_ssh_command("oc process logging-support-template -n {project} -v IMAGE_VERSION={version}| oc create -n {project} -f -".format(project=AOS.osProject,version=AOS.imageVersion), ssh=False)
            imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
-           if "registry.qe" in AOS.imagePrefix:
+           #if "registry.qe" in AOS.imagePrefix:
               #AOS.update_dc_for_registryqe_repo()
-              AOS.add_pull_secret_for_registryqe_repo()
+           #   AOS.add_pull_secret_for_registryqe_repo()
            AOS.set_annotation(imageStreams)
 
         AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
@@ -555,7 +559,7 @@ class AOS(object):
               dcNum += 1
         AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator\s+|logging-curator-ops\s+|logging-kibana-ops\s+)", dstNum=dcNum)
 
-        if AOS.imageVersion <= "3.2.1":
+        if AOS.imageVersion < "3.2.1":
            nodeNum = AOS.run_ssh_command("oc get node --no-headers 2>/dev/null | grep -v Disabled |grep -i -v Not | wc -l", ssh=True)
            AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas={}".format(nodeNum), ssh=False)
            AOS.run_ssh_command("oc scale rc/logging-fluentd-1 --replicas={}".format(nodeNum), ssh=False)
