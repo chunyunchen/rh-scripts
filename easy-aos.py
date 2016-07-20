@@ -66,6 +66,7 @@ class AOS(object):
     osProject=""
     delProject = False
     pullLoggingMetricsImage = False
+    isOSEServer = False
     MasterURL = ""
 
     @staticmethod
@@ -152,6 +153,7 @@ class AOS(object):
                             'p': 'osProject',
                             'd': 'delProject',
                             'pull': 'pullLoggingMetricsImage',
+                            'ose': 'isOSEServer',
                             'prefix': 'imagePrefix',
                             'mtag': 'imageVersion',
                             'mode': 'deployMode',
@@ -417,7 +419,7 @@ class AOS(object):
     @classmethod
     def enable_logging_metircs_web_console(cls):
         AOS.add_weburl_for_logging_and_metrics()
-        if "amazonaws" in AOS.master:
+        if "amazonaws" in AOS.master and not AOS.isOSEServer:
            AOS.restart_origin_server()
         else:
            AOS.restart_ose_server()
@@ -774,27 +776,29 @@ class AOS(object):
         logging.set_defaults(subcommand=AOS.start_logging_stack)
     
         # Sub-command for deploying APIMan stack
-        logging = subCommands.add_parser('apiman', parents=[commonArgs,subCommonArgs],\
+        apiman = subCommands.add_parser('apiman', parents=[commonArgs,subCommonArgs],\
                                                     description="Deploy APIMan stack pods",\
                                                     help="Deploy APIMan stack pods")
-        logging.set_defaults(subcommand=AOS.start_apiman_stack)
+        apiman.set_defaults(subcommand=AOS.start_apiman_stack)
 
         # Enable logging and metrics view in OpenShift console
-        logging = subCommands.add_parser('webconsole', parents=[commonArgs],\
+        webconsole = subCommands.add_parser('webconsole', parents=[commonArgs],\
                                                     description="Enable logging and metrics view in OpenShift console",\
                                                     help="Enable logging and metrics view in OpenShift console")
-        logging.set_defaults(subcommand=AOS.enable_logging_metircs_web_console)
+        webconsole.add_argument('--ose', action="store_true",\
+                                       help="Indicate the OpenShift is OSE env.Default is False")
+        webconsole.set_defaults(subcommand=AOS.enable_logging_metircs_web_console)
 
         # Show current configurations
-        logging = subCommands.add_parser('showcfg', parents=[commonArgs],\
+        showcfg = subCommands.add_parser('showcfg', parents=[commonArgs],\
                                                     description="Show current configurations",\
                                                     help="Show current configurations")
-        logging.set_defaults(subcommand=AOS.show_current_config)
+        showcfg.set_defaults(subcommand=AOS.show_current_config)
 
         # Generate default config file
-        logging = subCommands.add_parser('cfg', description="Generate default config file",\
+        cfg = subCommands.add_parser('cfg', description="Generate default config file",\
                                                     help="Generate default config file")
-        logging.set_defaults(subcommand=AOS.generate_default_config)
+        cfg.set_defaults(subcommand=AOS.generate_default_config)
 
         args = commands.parse_args()
         if not re.match("(show_current_config|generate_default_config)", args.subcommand.__name__):
