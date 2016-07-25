@@ -238,13 +238,16 @@ class AOS(object):
         AOS.echo_user_info()
 
     @staticmethod
-    def run_ssh_command(cmd, asShell=True,ssh=True):
+    def run_ssh_command(cmd, asShell=True,ssh=True,expectedNum=None,echoRe=None):
         remote_command = cmd
 
         if ssh:
             remote_command = '%s {}'.format(pipes.quote(cmd)) % AOS.SSHIntoMaster
 
-        AOS.echo_command(remote_command)
+        echo_msg = remote_command
+        if expectedNum:
+           echo_msg += ", expected num: {}({})".format(expectedNum,echoRe)
+        AOS.echo_command(echo_msg)
 
         try:
             outputs = check_output(remote_command, shell=asShell, stderr=STDOUT)
@@ -293,7 +296,7 @@ class AOS(object):
         while dstNum > len(re.findall(reStr,output)) and 0 < iloop:
             time.sleep(interval)
             iloop -= 1
-            output = AOS.run_ssh_command(cmd,ssh=enableSsh)
+            output = AOS.run_ssh_command(cmd,ssh=enableSsh,expectedNum=dstNum,echoRe=reStr)
             cprint(output)
 
         if iloop == 0:
@@ -504,7 +507,7 @@ class AOS(object):
            AOS.do_permission("add-cluster-role-to-user","oauth-editor",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
            AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
            AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
-           AOS.run_ssh_command("oc create configmap logging-deployer  --from-literal kibana-hostname={}.{} --from-literal public-master-url={} --from-literal es-cluster-size={}".format(AOS.kibanaAppname,subdomain,AOS.MasterURL,AOS.ESClusterSize), ssh=False)
+           AOS.run_ssh_command("oc create configmap logging-deployer  --from-literal kibana-hostname={}.{} --from-literal public-master-url={} --from-literal es-cluster-size={} --from-literal enable-ops-cluster={}".format(AOS.kibanaAppname,subdomain,AOS.MasterURL,AOS.ESClusterSize,AOS.enableKibanaOps), ssh=False)
            AOS.run_ssh_command("oc label node -l registry=enabled logging-infra-fluentd=true --overwrite", ssh=False)
         elif AOS.imageVersion > "3.2.1" and AOS.imageVersion < "3.3.0":
            AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
