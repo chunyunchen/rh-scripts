@@ -60,6 +60,7 @@ class AOS(object):
     TokenUser = ""
     TokenUserEMail = ""
     deployMode = ""
+    useJournal = "false"
 
     SSHIntoMaster=""
     ScpFileFromMaster=""
@@ -103,6 +104,7 @@ class AOS(object):
         config.set('image', 'token_user_email', 'chunchen@redhat.com')
         config.set('image','efk_deployer','https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployer/deployer.yaml')
         config.set('image', 'cassandra_nodes','3')
+        config.set('image', 'use_journal', 'false')
 
         with open(AOS.osConfigFile, 'wb') as defaultconfig:
            config.write(defaultconfig)
@@ -145,6 +147,7 @@ class AOS(object):
         AOS.PVCSize = config.get("image","pvc_size")
         AOS.EFKDeployer = config.get("image","efk_deployer")
         AOS.cassandraNodes = config.get("image","cassandra_nodes")
+        AOS.useJournal = config.get("image", "use_journal")
 
         if AOS.osUser:
            AOS.osProject = re.match(r'\w+',AOS.osUser).group(0)
@@ -486,6 +489,50 @@ class AOS(object):
     @classmethod
     def start_logging_stack(cls):
         AOS.set_mode_for_logging()
+        if "reinstall" in AOS.deployMode:
+           AOS.redeploy_logging()
+        elif "install" in AOS.deployMode:
+           AOS.deploy_logging()
+
+        AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-deployer.+Completed", dstNum=1)
+        if AOS.imageVersion <= "3.2.1":
+           AOS.run_ssh_command("oc process logging-support-template -n {project} -v IMAGE_VERSION={version}| oc create -n {project} -f -".format(project=AOS.osProject,version=AOS.imageVersion), ssh=False)
+           imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
+           AOS.set_annotation(imageStreams)
+        dcNum = 3
+        #if AOS.imageVersion > "3.2.1":
+        #   dcNum = 4
+        if "true" in AOS.enableKibanaOps:
+           dcNum += 2
+           if AOS.imageVersion > "3.2.1":
+              dcNum += 1
+        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator\s+|logging-curator-ops\s+|logging-kibana-ops\s+)", dstNum=dcNum)
+
+        if AOS.imageVersion <= "3.2.1":
+           nodeNum = AOS.run_ssh_command("oc get node --no-headers 2>/dev/null | grep -v Disabled |grep -i -v Not | wc -l", ssh=True)
+           AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas={}".format(nodeNum), ssh=False)
+           AOS.run_ssh_command("oc scale rc/logging-fluentd-1 --replicas={}".format(nodeNum), ssh=False)
+        else:
+           AOS.run_ssh_command("oc scale dc/logging-curator --replicas=1", ssh=False)
+           AOS.run_ssh_command("oc scale rc/logging-curator-1 --replicas=1", ssh=False)
+           AOS.run_ssh_command("oc scale dc/logging-curator-ops --replicas=1", ssh=False)
+           AOS.run_ssh_command("oc scale rc/logging-curator-ops-1 --replicas=1", ssh=False)
+
+        AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-\w+.+Running", dstNum=dcNum)
+        cprint("Success!","green")
+   
+    @classmethod
+    def redeploy_logging(cls):
+        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
+        AOS.run_ssh_command('oc patch configmap logging-deployer  -p {}'.format(pipes.quote('{"data":{"use-journal":"'+AOS.useJournal+'"}}')), ssh=False)
+        AOS.run_ssh_command('oc patch configmap logging-deployer  -p {}'.format(pipes.quote('{"data":{"enable-ops-cluster":"'+AOS.enableKibanaOps+'"}}')), ssh=False)
+        AOS.run_ssh_command('oc patch configmap logging-deployer  -p {}'.format(pipes.quote('{"data":{"es-cluster-size":"'+AOS.ESClusterSize+'"}}')), ssh=False)
+        cmd = "oc new-app logging-deployer-template -p IMAGE_PREFIX={},IMAGE_VERSION={},MODE={}".format(AOS.imagePrefix,AOS.imageVersion,AOS.deployMode)
+        AOS.run_ssh_command(cmd,ssh=False)
+        AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
+ 
+    @classmethod
+    def deploy_logging(cls):
         AOS.login_server()
         cprint("Start deploying logging stack pods...",'blue')
         AOS.clean_logging_objects()
@@ -507,7 +554,7 @@ class AOS(object):
            AOS.do_permission("add-cluster-role-to-user","oauth-editor",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
            AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
            AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
-           AOS.run_ssh_command("oc create configmap logging-deployer  --from-literal kibana-hostname={}.{} --from-literal public-master-url={} --from-literal es-cluster-size={} --from-literal enable-ops-cluster={}".format(AOS.kibanaAppname,subdomain,AOS.MasterURL,AOS.ESClusterSize,AOS.enableKibanaOps), ssh=False)
+           AOS.run_ssh_command("oc create configmap logging-deployer  --from-literal kibana-hostname={}.{} --from-literal public-master-url={} --from-literal es-cluster-size={} --from-literal enable-ops-cluster={} --from-literal use-journal={}".format(AOS.kibanaAppname,subdomain,AOS.MasterURL,AOS.ESClusterSize,AOS.enableKibanaOps,AOS.useJournal), ssh=False)
            AOS.run_ssh_command("oc label node -l registry=enabled logging-infra-fluentd=true --overwrite", ssh=False)
         elif AOS.imageVersion > "3.2.1" and AOS.imageVersion < "3.3.0":
            AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
@@ -543,39 +590,8 @@ class AOS(object):
         else:
            cmd = "oc new-app logging-deployer-template -p IMAGE_PREFIX={},IMAGE_VERSION={},MODE={}".format(AOS.imagePrefix,AOS.imageVersion,AOS.deployMode)
         AOS.run_ssh_command(cmd,ssh=False)
-        AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-deployer.+Completed", dstNum=1)
-
-        if AOS.imageVersion <= "3.2.1":
-           AOS.run_ssh_command("oc process logging-support-template -n {project} -v IMAGE_VERSION={version}| oc create -n {project} -f -".format(project=AOS.osProject,version=AOS.imageVersion), ssh=False)
-           imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
-           #if "registry.qe" in AOS.imagePrefix:
-              #AOS.update_dc_for_registryqe_repo()
-           #   AOS.add_pull_secret_for_registryqe_repo()
-           AOS.set_annotation(imageStreams)
 
         AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
-
-        dcNum = 3
-        if AOS.imageVersion > "3.2.1":
-           dcNum = 4
-        if "true" in AOS.enableKibanaOps:
-           dcNum += 2
-           if AOS.imageVersion > "3.2.1":
-              dcNum += 1
-        AOS.resource_validate("oc get dc --no-headers -n {}".format(AOS.osProject), r"(logging-fluentd\s+|logging-kibana\s+|logging-es-\w+|logging-curator\s+|logging-curator-ops\s+|logging-kibana-ops\s+)", dstNum=dcNum)
-
-        if AOS.imageVersion < "3.2.1":
-           nodeNum = AOS.run_ssh_command("oc get node --no-headers 2>/dev/null | grep -v Disabled |grep -i -v Not | wc -l", ssh=True)
-           AOS.run_ssh_command("oc scale dc/logging-fluentd --replicas={}".format(nodeNum), ssh=False)
-           AOS.run_ssh_command("oc scale rc/logging-fluentd-1 --replicas={}".format(nodeNum), ssh=False)
-        else:
-           AOS.run_ssh_command("oc scale dc/logging-curator --replicas=1", ssh=False)
-           AOS.run_ssh_command("oc scale rc/logging-curator-1 --replicas=1", ssh=False)
-           AOS.run_ssh_command("oc scale dc/logging-curator-ops --replicas=1", ssh=False)
-           AOS.run_ssh_command("oc scale rc/logging-curator-ops-1 --replicas=1", ssh=False)
-
-        AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-\w+.+Running", dstNum=dcNum)
-        cprint("Success!","green")
 
     @staticmethod
     def clone_gitrepo(repoName):
