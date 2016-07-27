@@ -588,7 +588,7 @@ class AOS(object):
         if AOS.imageVersion < "3.3.0":
            cmd = "oc new-app logging-deployer-template -p {}".format(','.join(paraList))
         else:
-           cmd = "oc new-app logging-deployer-template -p IMAGE_PREFIX={},IMAGE_VERSION={},MODE={}".format(AOS.imagePrefix,AOS.imageVersion,AOS.deployMode)
+           cmd = "oc new-app logging-deployer-template -p IMAGE_PREFIX={},IMAGE_VERSION={},MODE={},MASTER_URL={}".format(AOS.imagePrefix,AOS.imageVersion,AOS.deployMode,AOS.MasterURL)
         AOS.run_ssh_command(cmd,ssh=False)
 
         AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
