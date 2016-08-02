@@ -523,6 +523,7 @@ class AOS(object):
    
     @classmethod
     def redeploy_logging(cls):
+        AOS.run_ssh_command('oc project {}'.format(AOS.osProject),ssh=False)
         AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         AOS.run_ssh_command('oc patch configmap logging-deployer  -p {}'.format(pipes.quote('{"data":{"use-journal":"'+AOS.useJournal+'"}}')), ssh=False)
         AOS.run_ssh_command('oc patch configmap logging-deployer  -p {}'.format(pipes.quote('{"data":{"enable-ops-cluster":"'+AOS.enableKibanaOps+'"}}')), ssh=False)
@@ -550,10 +551,9 @@ class AOS(object):
                                      'KIBANA_OPS_HOSTNAME':AOS.kibanaOpsAppname+'.'+subdomain})
         if AOS.imageVersion >= "3.3.0":
            AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
-           AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -', ssh=False)
-           #AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
-          # AOS.do_permission("add-cluster-role-to-user","oauth-editor",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
-           AOS.do_permission("add-cluster-role-to-user","cluster-admin",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
+           #AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -', ssh=False)
+           AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
+           AOS.do_permission("add-cluster-role-to-user","oauth-editor",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
            AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
            AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
            AOS.run_ssh_command("oc create configmap logging-deployer  --from-literal kibana-hostname={}.{} --from-literal public-master-url={} --from-literal es-cluster-size={} --from-literal enable-ops-cluster={} --from-literal use-journal={}".format(AOS.kibanaAppname,subdomain,AOS.MasterURL,AOS.ESClusterSize,AOS.enableKibanaOps,AOS.useJournal), ssh=False)
@@ -590,7 +590,8 @@ class AOS(object):
         if AOS.imageVersion < "3.3.0":
            cmd = "oc new-app logging-deployer-template -p {}".format(','.join(paraList))
         else:
-           cmd = "oc new-app logging-deployer-template -p IMAGE_PREFIX={},IMAGE_VERSION={},MODE={},MASTER_URL={}".format(AOS.imagePrefix,AOS.imageVersion,AOS.deployMode,AOS.MasterURL)
+           cmd = "oc new-app logging-deployer-template -p IMAGE_PREFIX={},IMAGE_VERSION={},MODE={}".format(AOS.imagePrefix,AOS.imageVersion,AOS.deployMode)
+           #cmd = "oc new-app logging-deployer-template -p IMAGE_PREFIX={},IMAGE_VERSION={},MODE={},MASTER_URL={}".format(AOS.imagePrefix,AOS.imageVersion,AOS.deployMode,AOS.MasterURL)
         AOS.run_ssh_command(cmd,ssh=False)
 
         AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
