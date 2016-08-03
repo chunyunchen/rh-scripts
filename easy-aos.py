@@ -206,7 +206,7 @@ class AOS(object):
     def set_ssh_master():
         output = AOS.run_ssh_command("which oadm")
         if not output:
-           ssh_master = AOS.run_ssh_command("grep loginURL /etc/origin/master/master-config.yaml | awk -F'/' '{print $3}'")
+           ssh_master = AOS.run_ssh_command("grep 'urls:' -A 3 /etc/origin/master/master-config.yaml | " + "grep -v {}".format(AOS.osProject) +" |grep -v urls | head -1 |awk -F'/' '{print $3}' | awk -F':' '{print $1}'")
            cprint(ssh_master)
            AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, ssh_master.strip())
            AOS.ScpFileFromMaster = "scp -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s:" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, ssh_master.strip())
