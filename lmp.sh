@@ -9,7 +9,7 @@
 # the format for *time* command: %E=real time, %U=user time, %S=system time
 export TIMEFORMAT="%E %U %S"
 
-OS_MASTER=""
+OS_MASTER="ec2-54-210-189-77.compute-1.amazonaws.com"
 MASTER_CONFIG="/etc/origin/master/master-config.yaml"
 SUBDOMAIN=""
 OS_USER="xiazhao@redhat.com"

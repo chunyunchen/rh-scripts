@@ -61,6 +61,7 @@ class AOS(object):
     TokenUserEMail = ""
     deployMode = ""
     useJournal = "false"
+    userWriteAccess = ""
 
     SSHIntoMaster=""
     ScpFileFromMaster=""
@@ -74,37 +75,39 @@ class AOS(object):
     def generate_default_config():
         '''Create the default config file if not exists'''
 
-        config.add_section("master")
-        config.add_section("project")
-        config.add_section("image")
+        config.add_section("global")
+        config.add_section("metrics")
+        config.add_section("logging")
+        config.add_section("component_shared")
         config.add_section("ssh")
-        config.set('project','os_user','')
-        config.set('project','os_passwd','')
-        config.set('project','master_user','root')
-        config.set('master','master','')
-        config.set('master','master_config_root','/etc/origin/master')
-        config.set('master','master_config_file','master-config.yaml')
-        config.set('master','kube_config_file','admin.kubeconfig')
+        config.set('global','os_user','')
+        config.set('global','os_passwd','')
+        config.set('global','master_user','root')
+        config.set('global','master','')
+        config.set('global','master_config_root','/etc/origin/master')
+        config.set('global','master_config_file','master-config.yaml')
+        config.set('global','kube_config_file','admin.kubeconfig')
         config.set('ssh','pem_file','')
-        config.set('image','hawkular_metrics_appname','hawkular-metrics')
-        config.set('image','kibana_ops_appname','kibana-ops')
-        config.set('image','enable_kibana_ops','true')
-        config.set('image','kibana_appname','kibana')
-        config.set('image','serviceaccount_metrics_deployer','https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics-deployer-setup.yaml')
-        config.set('image','hch_stack','https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics.yaml')
-        config.set('image','image_prefix','openshift/origin-')
-        config.set('image','image_version','latest')
-        config.set('image','enable_pv','false')
-        config.set('image','elastic_ram','1G')
-        config.set('image','elastic_cluster_size','1')
-        config.set('image', 'pvc_size', '10')
-        config.set('image', 'registryqe_token','')
-        config.set('image', 'token_user', 'chunchen')
-        config.set('image', 'deploy_mode', 'deploy')
-        config.set('image', 'token_user_email', 'chunchen@redhat.com')
-        config.set('image','efk_deployer','https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployer/deployer.yaml')
-        config.set('image', 'cassandra_nodes','3')
-        config.set('image', 'use_journal', 'false')
+        config.set('metrics','hawkular_metrics_appname','hawkular-metrics')
+        config.set('logging','kibana_ops_appname','kibana-ops')
+        config.set('logging','enable_kibana_ops','true')
+        config.set('logging','kibana_appname','kibana')
+        config.set('metrics','serviceaccount_metrics_deployer','https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics-deployer-setup.yaml')
+        config.set('metrics','hch_stack','https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics.yaml')
+        config.set('component_shared','image_prefix','openshift/origin-')
+        config.set('component_shared','image_version','latest')
+        config.set('component_shared','enable_pv','false')
+        config.set('logging','elastic_ram','1G')
+        config.set('logging','elastic_cluster_size','1')
+        config.set('component_shared', 'pvc_size', '10')
+        config.set('component_shared', 'registryqe_token','')
+        config.set('component_shared', 'token_user', 'chunchen')
+        config.set('component_shared', 'deploy_mode', 'deploy')
+        config.set('component_shared', 'token_user_email', 'chunchen@redhat.com')
+        config.set('logging','efk_deployer','https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployer/deployer.yaml')
+        config.set('logging', 'cassandra_nodes','3')
+        config.set('logging', 'use_journal', 'false')
+        config.set('metrics', 'user_write_access', 'false')
 
         with open(AOS.osConfigFile, 'wb') as defaultconfig:
            config.write(defaultconfig)
@@ -121,33 +124,34 @@ class AOS(object):
     @staticmethod
     def get_config(args):
         config.read(AOS.osConfigFile)
-        AOS.osUser = config.get("project","os_user")
-        AOS.osPasswd = config.get("project","os_passwd")
-        AOS.masterUser = config.get("project","master_user")
-        AOS.master = config.get("master","master")
-        AOS.masterConfigRoot = config.get("master","master_config_root")
-        AOS.masterConfigFile = config.get("master","master_config_file")
-        AOS.kubeConfigFile = config.get("master","kube_config_file")
+        AOS.osUser = config.get("global","os_user")
+        AOS.osPasswd = config.get("global","os_passwd")
+        AOS.masterUser = config.get("global","master_user")
+        AOS.master = config.get("global","master")
+        AOS.masterConfigRoot = config.get("global","master_config_root")
+        AOS.masterConfigFile = config.get("global","master_config_file")
+        AOS.kubeConfigFile = config.get("global","kube_config_file")
         AOS.pemFile = config.get("ssh","pem_file")
-        AOS.hawkularMetricsAppname = config.get("image","hawkular_metrics_appname")
-        AOS.kibanaOpsAppname = config.get("image","kibana_ops_appname")
-        AOS.kibanaAppname = config.get("image","kibana_appname")
-        AOS.SAMetricsDeployer = config.get("image","serviceaccount_metrics_deployer")
-        AOS.HCHStack = config.get("image","hch_stack")
-        AOS.imagePrefix = config.get("image","image_prefix")
-        AOS.imageVersion = config.get("image","image_version")
-        AOS.enablePV = config.get("image","enable_pv")
-        AOS.enableKibanaOps = config.get("image","enable_kibana_ops")
-        AOS.ESRam = config.get("image","elastic_ram")
-        AOS.RegistryQEToken = config.get("image","registryqe_token")
-        AOS.TokenUser = config.get("image","token_user")
-        AOS.deployMode = config.get("image", "deploy_mode")
-        AOS.TokenUserEMail = config.get("image","token_user_email")
-        AOS.ESClusterSize = config.get("image","elastic_cluster_size")
-        AOS.PVCSize = config.get("image","pvc_size")
-        AOS.EFKDeployer = config.get("image","efk_deployer")
-        AOS.cassandraNodes = config.get("image","cassandra_nodes")
-        AOS.useJournal = config.get("image", "use_journal")
+        AOS.hawkularMetricsAppname = config.get("metrics","hawkular_metrics_appname")
+        AOS.kibanaOpsAppname = config.get("logging","kibana_ops_appname")
+        AOS.kibanaAppname = config.get("logging","kibana_appname")
+        AOS.SAMetricsDeployer = config.get("metrics","serviceaccount_metrics_deployer")
+        AOS.HCHStack = config.get("metrics","hch_stack")
+        AOS.imagePrefix = config.get("component_shared","image_prefix")
+        AOS.imageVersion = config.get("component_shared","image_version")
+        AOS.enablePV = config.get("component_shared","enable_pv")
+        AOS.enableKibanaOps = config.get("logging","enable_kibana_ops")
+        AOS.ESRam = config.get("logging","elastic_ram")
+        AOS.RegistryQEToken = config.get("component_shared","registryqe_token")
+        AOS.TokenUser = config.get("component_shared","token_user")
+        AOS.deployMode = config.get("component_shared", "deploy_mode")
+        AOS.TokenUserEMail = config.get("component_shared","token_user_email")
+        AOS.ESClusterSize = config.get("logging","elastic_cluster_size")
+        AOS.PVCSize = config.get("component_shared","pvc_size")
+        AOS.EFKDeployer = config.get("logging","efk_deployer")
+        AOS.cassandraNodes = config.get("logging","cassandra_nodes")
+        AOS.useJournal = config.get("logging", "use_journal")
+        AOS.userWriteAccess = config.get("metrics","user_write_access")
 
         if AOS.osUser:
            AOS.osProject = re.match(r'\w+',AOS.osUser).group(0)
@@ -309,11 +313,14 @@ class AOS(object):
     @classmethod
     def add_project(cls):
         if AOS.delProject:
-            cprint("Deleting project *{}*".format(AOS.osProject),'blue')
-            project = re.findall(AOS.osProject,AOS.run_ssh_command("oc get project",ssh=False))
-            if 0 < len(project):
-                AOS.run_ssh_command("oc delete project {}".format(AOS.osProject),ssh=False)
-                AOS.resource_validate("oc get projects", r"{}\s+".format(AOS.osProject), dstNum=0)
+           if "deploy" not in AOS.deployMode:
+              cprint("Deleting project *{}*".format(AOS.osProject),'blue')
+              project = re.findall(AOS.osProject,AOS.run_ssh_command("oc get project",ssh=False))
+              if 0 < len(project):
+                 AOS.run_ssh_command("oc delete project {}".format(AOS.osProject),ssh=False)
+                 AOS.resource_validate("oc get projects", r"{}\s+".format(AOS.osProject), dstNum=0)
+           else:
+              AOS.cleanup_metics()
 
         outputs = AOS.run_ssh_command("oc get projects", ssh=False)
         project = re.findall(r"{}\s+".format(AOS.osProject), outputs)
@@ -438,6 +445,16 @@ class AOS(object):
             para_list.append(p_name+"="+p_value)
         return para_list
 
+    @staticmethod
+    def cleanup_metics():
+        cprint("Cleanuping metrics deployments under project *{}*".format(AOS.osProject),'blue')
+        deleted_obj_with_lable = ["all","secrets","sa","templates"]
+        deleted_obj_without_lable = ["sa metrics-deployer","secret metrics-deployer"]
+        for obj in deleted_obj_with_lable:
+            AOS.run_ssh_command("oc delete {} --selector=metrics-infra -n {}".format(obj,AOS.osProject), ssh=False)
+        for obj in deleted_obj_without_lable:
+            AOS.run_ssh_command("oc delete {} -n {}".format(obj,AOS.osProject), ssh=False)
+
     @classmethod
     def start_metrics_stack(cls):
         AOS.login_server()
@@ -456,6 +473,7 @@ class AOS(object):
                                      'IMAGE_VERSION':AOS.imageVersion,\
                                      'USE_PERSISTENT_STORAGE':AOS.enablePV,\
                                      'MASTER_URL':AOS.MasterURL,\
+                                     'USER_WRITE_ACCESS':AOS.userWriteAccess,\
                                      'CASSANDRA_NODES': AOS.cassandraNodes,\
                                      'CASSANDRA_PV_SIZE':AOS.PVCSize})
         if AOS.imageVersion >= "3.2.1":
