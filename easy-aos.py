@@ -95,6 +95,10 @@ class AOS(object):
         config.set('metrics','serviceaccount_metrics_deployer','https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics-deployer-setup.yaml')
         config.set('metrics','hch_stack','https://raw.githubusercontent.com/openshift/origin-metrics/master/metrics.yaml')
         config.set('component_shared','image_prefix','openshift/origin-')
+        config.set('component_shared',';image_prefix0','registry.qe.openshift.com/openshift3/')
+        config.set('component_shared',';image_prefix1','brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888/openshift3/')
+        config.set('component_shared',';image_prefix2','brew-pulp-docker01.web.qa.ext.phx1.redhat.com:8888/openshift3/')
+        config.set('component_shared',';image_prefix3','registry.ops.openshift.com')
         config.set('component_shared','image_version','latest')
         config.set('component_shared','enable_pv','false')
         config.set('logging','elastic_ram','1G')
@@ -346,10 +350,14 @@ class AOS(object):
         AOS.loginedOnce()
         try:
            cprint('Log into OpenShift...','blue')
-           AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.MasterURL,AOS.osUser,AOS.osPasswd),ssh=False)
+           output = AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.MasterURL,AOS.osUser,AOS.osPasswd),ssh=False)
+           if "dial" in output:
+              cprint('Try to log into OpenShift again...','blue')
+              AOS.MasterURL = "https://{}:443".format(AOS.master)
+              AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.MasterURL,AOS.osUser,AOS.osPasswd),ssh=False)
         except (Exception):
            cprint('Try to log into OpenShift again...','blue')
-           AOS.MasterURL = "https://{}".format(AOS.master)
+           AOS.MasterURL = "https://{}:443".format(AOS.master)
            AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.MasterURL,AOS.osUser,AOS.osPasswd),ssh=False)
 
         AOS.add_project()
