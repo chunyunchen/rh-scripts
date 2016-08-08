@@ -98,7 +98,7 @@ class AOS(object):
         config.set('component_shared',';image_prefix0','registry.qe.openshift.com/openshift3/')
         config.set('component_shared',';image_prefix1','brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888/openshift3/')
         config.set('component_shared',';image_prefix2','brew-pulp-docker01.web.qa.ext.phx1.redhat.com:8888/openshift3/')
-        config.set('component_shared',';image_prefix3','registry.ops.openshift.com')
+        config.set('component_shared',';image_prefix3','registry.ops.openshift.com/openshift3/')
         config.set('component_shared','image_version','latest')
         config.set('component_shared','enable_pv','false')
         config.set('logging','elastic_ram','1G')
@@ -465,8 +465,8 @@ class AOS(object):
     
     @staticmethod
     def update_metric_deployer_template(project="openshift"):
-        output = AOS.run_ssh_command("oc get template metrics-deployer-template  -o yaml -n {}| grep USER_WRITE_ACCESS".format(project))
-        if "USER_WRITE_ACCESS" not in output:
+        hasWriteAccessParameter = AOS.run_ssh_command("oc get template metrics-deployer-template  -o yaml -n {}| grep USER_WRITE_ACCESS".format(project))
+        if not hasWriteAccessParameter:
            cprint("Updating metrics deployer template in project {}".format(project))
            AOS.run_ssh_command("oc delete template metrics-deployer-template -n {proj} && oc create -f AOS.SAMetricsDeployer -n {proj}".format(proj=project))
 
