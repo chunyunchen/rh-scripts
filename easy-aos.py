@@ -462,10 +462,18 @@ class AOS(object):
             AOS.run_ssh_command("oc delete {} --selector=metrics-infra -n {}".format(obj,AOS.osProject), ssh=False)
         for obj in deleted_obj_without_lable:
             AOS.run_ssh_command("oc delete {} -n {}".format(obj,AOS.osProject), ssh=False)
+    
+    @staticmethod
+    def update_metric_deployer_template(project="openshift"):
+        output = AOS.run_ssh_command("oc get template metrics-deployer-template  -o yaml -n {}| grep USER_WRITE_ACCESS".format(project))
+        if "USER_WRITE_ACCESS" not in output:
+           cprint("Updating metrics deployer template in project {}".format(project))
+           AOS.run_ssh_command("oc delete template metrics-deployer-template -n {proj} && oc create -f AOS.SAMetricsDeployer -n {proj}".format(proj=project))
 
     @classmethod
     def start_metrics_stack(cls):
         AOS.login_server()
+        AOS.update_metric_deployer_template()
         cprint("{} metrics stack...".format(AOS.deployMode),'blue')
        # AOS.run_ssh_command("oc create -f %s" % AOS.SAMetricsDeployer, ssh=False)
       #  if "registry.qe" in AOS.imagePrefix:
