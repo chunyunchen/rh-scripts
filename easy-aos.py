@@ -468,7 +468,7 @@ class AOS(object):
         hasWriteAccessParameter = AOS.run_ssh_command("oc get template metrics-deployer-template  -o yaml -n {}| grep USER_WRITE_ACCESS".format(project))
         if not hasWriteAccessParameter:
            cprint("Updating metrics deployer template in project {}".format(project))
-           AOS.run_ssh_command("oc delete template metrics-deployer-template -n {proj} && oc create -f AOS.SAMetricsDeployer -n {proj}".format(proj=project))
+           AOS.run_ssh_command("oc delete template metrics-deployer-template -n {proj} && oc create -f {tpFile} -n {proj}".format(proj=project,tpFile=AOS.HCHStack))
 
     @classmethod
     def start_metrics_stack(cls):
