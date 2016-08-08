@@ -129,7 +129,6 @@ class AOS(object):
 
     @staticmethod
     def get_config(args):
-        cprint("Getting configurations from config file and command line:", "blue")
         config.read(AOS.osConfigFile)
         AOS.osUser = config.get("global","os_user")
         AOS.osPasswd = config.get("global","os_passwd")
@@ -237,7 +236,7 @@ class AOS(object):
 
     @classmethod
     def check_validation(cls,args):
-        cprint("Checking confiures...",'blue')
+        cprint("Checking Confiurations...",'blue')
         if not os.path.isfile(AOS.osConfigFile):
             cprint("Please create your config file by:","red")
             cprint("easy-aos.py cfg","blue")
@@ -263,8 +262,9 @@ class AOS(object):
         AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
         AOS.ScpFileFromMaster = "scp -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s:" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
         AOS.set_ssh_master()
-        AOS.set_masterUrl()
         AOS.ssh_validation()
+        cprint("Done,Good!",'green')
+        AOS.set_masterUrl()
         AOS.echo_user_info()
 
     @staticmethod
