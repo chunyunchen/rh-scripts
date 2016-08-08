@@ -184,7 +184,10 @@ class AOS(object):
         cprint("Getting service port from master server:", "blue")
         masterConfig = os.path.join(AOS.masterConfigRoot, AOS.masterConfigFile)
         outputs = AOS.run_ssh_command("grep bindAddress {} |grep 443 |head -1".format(masterConfig))
-        masterPort = outputs.split(":")[-1].strip()
+        masterPort = "8443"
+        if outputs:
+           masterPort = outputs.split(":")[-1].strip()
+        
         return masterPort
 
     @staticmethod
