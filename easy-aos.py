@@ -201,6 +201,7 @@ class AOS(object):
         print("project: {}".format(AOS.osProject))
         print("image prefix: {}".format(AOS.imagePrefix))
         print("image version: {}".format(AOS.imageVersion))
+        print("\n")
      
     @staticmethod
     def get_current_time_str():
@@ -264,8 +265,8 @@ class AOS(object):
         AOS.set_ssh_master()
         AOS.ssh_validation()
         cprint("Done,Good!",'green')
-        AOS.set_masterUrl()
         AOS.echo_user_info()
+        AOS.set_masterUrl()
 
     @staticmethod
     def run_ssh_command(cmd, asShell=True,ssh=True,expectedNum=None,echoRe=None):
