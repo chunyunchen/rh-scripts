@@ -36,6 +36,7 @@ class AOS(object):
     osConfigFile = "./aos.conf"
     osUser=""
     osPasswd=""
+    osUserToken=""
     masterUser=""
     master=""
     masterConfigRoot=""
@@ -82,6 +83,7 @@ class AOS(object):
         config.add_section("ssh")
         config.set('global','os_user','')
         config.set('global','os_passwd','')
+        config.set('global','os_user_token','')
         config.set('global','master_user','root')
         config.set('global','master','')
         config.set('global','master_config_root','/etc/origin/master')
@@ -109,7 +111,7 @@ class AOS(object):
         config.set('component_shared', 'deploy_mode', 'deploy')
         config.set('component_shared', 'token_user_email', 'chunchen@redhat.com')
         config.set('logging','efk_deployer','https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployer/deployer.yaml')
-        config.set('logging', 'cassandra_nodes','3')
+        config.set('logging', 'cassandra_nodes','2')
         config.set('logging', 'use_journal', 'false')
         config.set('metrics', 'user_write_access', 'false')
 
@@ -127,9 +129,11 @@ class AOS(object):
 
     @staticmethod
     def get_config(args):
+        cprint("Getting configurations from config file and command line:", "blue")
         config.read(AOS.osConfigFile)
         AOS.osUser = config.get("global","os_user")
         AOS.osPasswd = config.get("global","os_passwd")
+        AOS.osUserToken = config.get("global", "os_user_token")
         AOS.masterUser = config.get("global","master_user")
         AOS.master = config.get("global","master")
         AOS.masterConfigRoot = config.get("global","master_config_root")
@@ -175,7 +179,17 @@ class AOS(object):
             if value and aosVar: 
                setattr(AOS, aosVar, value)
 
-        AOS.MasterURL =  "https://{}:8443".format(AOS.master)
+    @classmethod
+    def get_master_server_port(cls):
+        cprint("Getting service port from master server:", "blue")
+        masterConfig = os.path.join(AOS.masterConfigRoot, AOS.masterConfigFile)
+        outputs = AOS.run_ssh_command("grep bindAddress {} |grep 443 |head -1".format(masterConfig))
+        masterPort = outputs.split(":")[-1].strip()
+        return masterPort
+
+    @staticmethod
+    def set_masterUrl():
+       AOS.MasterURL = "https://{}:{}".format(AOS.master, AOS.get_master_server_port())
 
     @staticmethod
     def echo_user_info():
@@ -215,7 +229,6 @@ class AOS(object):
         output = AOS.run_ssh_command("which oadm")
         if not output:
            ssh_master = AOS.run_ssh_command("grep 'urls:' -A 3 /etc/origin/master/master-config.yaml | " + "grep -v {}".format(AOS.osProject) +" |grep -v urls | head -1 |awk -F'/' '{print $3}' | awk -F':' '{print $1}'")
-           cprint(ssh_master)
            AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, ssh_master.strip())
            AOS.ScpFileFromMaster = "scp -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s:" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, ssh_master.strip())
 
@@ -231,20 +244,23 @@ class AOS(object):
 
         notification_items = []
         if not AOS.master:
-            notification_items.append("[master].master")
+            notification_items.append("[global].master")
         if not AOS.osUser:
-            notification_items.append("[project].os_user")
+            notification_items.append("[global].os_user")
         if not AOS.pemFile:
             notification_items.append("[ssh].pem_file")
+        if not AOS.osUserToken and not AOS.osPasswd:
+            notification_items.append("[global].os_passwd OR [global].os_user_token")
 
         if 0 < len(notification_items):
-            cprint("Please set below parameter(s) under %s config file:" % os.path.abspath(AOS.osConfigFile),'green',on_color='on_blue',attrs=['bold'])
+            cprint("Please set below parameter(s) in %s:" % os.path.abspath(AOS.osConfigFile),'green',on_color='on_blue',attrs=['bold'])
             cprint('\n'.join(notification_items),'green')
             os.sys.exit()
 
         AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
         AOS.ScpFileFromMaster = "scp -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s:" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
         AOS.set_ssh_master()
+        AOS.set_masterUrl()
         AOS.ssh_validation()
         AOS.echo_user_info()
 
@@ -336,7 +352,7 @@ class AOS(object):
 
     @staticmethod
     def loginedOnce():
-        loginCMD = "oc login {0} -u {1} -p {2}".format(AOS.MasterURL, AOS.osUser, AOS.osPasswd)
+        loginCMD = AOS.get_login_cmd(AOS.MasterURL)
 
         fExist = os.path.exists(os.path.expanduser('~/.kube/config'))
         if not fExist or not AOS.run_ssh_command("grep {} ~/.kube/config".format(AOS.master), ssh=False):
@@ -346,24 +362,25 @@ class AOS(object):
             os.sys.exit()
 
     @classmethod
+    def get_login_cmd(cls,masterUrl):
+        loginCMD = ""
+        if AOS.osPasswd:
+           loginCMD = "oc login %s -u %s -p %s" % (masterUrl,AOS.osUser,AOS.osPasswd)
+        elif AOS.osUserToken:
+           loginCMD = "oc login --token=%s --server=%s" % (AOS.osUserToken,masterUrl)
+        return loginCMD
+
+    @classmethod
     def login_server(cls):
         AOS.loginedOnce()
-        try:
-           cprint('Log into OpenShift...','blue')
-           output = AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.MasterURL,AOS.osUser,AOS.osPasswd),ssh=False)
-           if "dial" in output:
-              cprint('Try to log into OpenShift again...','blue')
-              AOS.MasterURL = "https://{}:443".format(AOS.master)
-              AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.MasterURL,AOS.osUser,AOS.osPasswd),ssh=False)
-        except (Exception):
-           cprint('Try to log into OpenShift again...','blue')
-           AOS.MasterURL = "https://{}:443".format(AOS.master)
-           AOS.run_ssh_command("oc login %s -u %s -p %s" % (AOS.MasterURL,AOS.osUser,AOS.osPasswd),ssh=False)
-
+        cprint('Log into OpenShift...','blue')
+        loginCMD = AOS.get_login_cmd(AOS.MasterURL)
+        AOS.run_ssh_command(loginCMD,ssh=False)
         AOS.add_project()
 
     @classmethod
     def get_subdomain(cls):
+        cprint("Getting dns subdomain from master server:", "blue")
         masterConfig = os.path.join(AOS.masterConfigRoot, AOS.masterConfigFile)
         outputs = AOS.run_ssh_command("grep subdomain {}".format(masterConfig))
         subdomain = outputs.split()[-1].strip('"')
@@ -467,8 +484,8 @@ class AOS(object):
     def update_metric_deployer_template(project="openshift"):
         hasWriteAccessParameter = AOS.run_ssh_command("oc get template metrics-deployer-template  -o yaml -n {}| grep USER_WRITE_ACCESS".format(project))
         if not hasWriteAccessParameter:
-           cprint("Updating metrics deployer template in project {}".format(project))
-           AOS.run_ssh_command("oc delete template metrics-deployer-template -n {proj} && oc create -f {tpFile} -n {proj}".format(proj=project,tpFile=AOS.HCHStack))
+           cprint("Updating metrics deployer template in project {}".format(project), "blue")
+           AOS.run_ssh_command("oc delete template metrics-deployer-template -n {proj}; oc create -f {tpFile} -n {proj}".format(proj=project,tpFile=AOS.HCHStack))
 
     @classmethod
     def start_metrics_stack(cls):
