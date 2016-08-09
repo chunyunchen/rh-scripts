@@ -182,7 +182,7 @@ class AOS(object):
     def get_master_server_port(cls):
         cprint("Getting service port from master server:", "blue")
         masterConfig = os.path.join(AOS.masterConfigRoot, AOS.masterConfigFile)
-        outputs = AOS.run_ssh_command("grep bindAddress {} |grep 443 |head -1".format(masterConfig))
+        outputs = AOS.run_ssh_command("sed -n '/^assetConfig:/,/^corsAllowedOrigins:/p' {}| grep bindAddress:| head -1".format(masterConfig))
         masterPort = "8443"
         if outputs:
            masterPort = outputs.split(":")[-1].strip()
@@ -496,9 +496,8 @@ class AOS(object):
         AOS.login_server()
         AOS.update_metric_deployer_template()
         cprint("{} metrics stack...".format(AOS.deployMode),'blue')
-       # AOS.run_ssh_command("oc create -f %s" % AOS.SAMetricsDeployer, ssh=False)
-      #  if "registry.qe" in AOS.imagePrefix:
-      #        AOS.add_pull_secret_for_registryqe_repo()
+        if "openshift" in AOS.osProject:
+           AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         if "deploy" == AOS.deployMode:
            AOS.run_ssh_command("oc create serviceaccount metrics-deployer",ssh=False)
            AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:heapster" % AOS.osProject)
@@ -518,6 +517,8 @@ class AOS(object):
 
         AOS.run_ssh_command("oc new-app metrics-deployer-template -p {}".format(','.join(paraList)), ssh=False)
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*Running.*")
+        if "openshift" in AOS.osProject:
+           AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
         cprint("Success!","green")
 
     @classmethod
