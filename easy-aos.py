@@ -493,11 +493,11 @@ class AOS(object):
 
     @classmethod
     def start_metrics_stack(cls):
+        if "openshift" in AOS.osProject:
+           AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         AOS.login_server()
         AOS.update_metric_deployer_template()
         cprint("{} metrics stack...".format(AOS.deployMode),'blue')
-        if "openshift" in AOS.osProject:
-           AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         if "deploy" == AOS.deployMode:
            AOS.run_ssh_command("oc create serviceaccount metrics-deployer",ssh=False)
            AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:heapster" % AOS.osProject)
