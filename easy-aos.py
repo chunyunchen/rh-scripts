@@ -545,6 +545,7 @@ class AOS(object):
     @classmethod
     def start_logging_stack(cls):
         AOS.set_mode_for_logging()
+        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         if "reinstall" in AOS.deployMode:
            AOS.redeploy_logging()
         elif "install" in AOS.deployMode:
@@ -575,12 +576,12 @@ class AOS(object):
            AOS.run_ssh_command("oc scale rc/logging-curator-ops-1 --replicas=1", ssh=False)
 
         AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-\w+.+[1/1|2/2].+Running", dstNum=dcNum)
+        AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
         cprint("Success!","green")
    
     @classmethod
     def redeploy_logging(cls):
         AOS.run_ssh_command('oc project {}'.format(AOS.osProject),ssh=False)
-        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         AOS.run_ssh_command('oc patch configmap logging-deployer  -p {}'.format(pipes.quote('{"data":{"use-journal":"'+AOS.useJournal+'"}}')), ssh=False)
         AOS.run_ssh_command('oc patch configmap logging-deployer  -p {}'.format(pipes.quote('{"data":{"enable-ops-cluster":"'+AOS.enableKibanaOps+'"}}')), ssh=False)
         AOS.run_ssh_command('oc patch configmap logging-deployer  -p {}'.format(pipes.quote('{"data":{"es-cluster-size":"'+AOS.ESClusterSize+'"}}')), ssh=False)
@@ -606,7 +607,6 @@ class AOS(object):
                                      'ES_CLUSTER_SIZE':AOS.ESClusterSize,\
                                      'KIBANA_OPS_HOSTNAME':AOS.kibanaOpsAppname+'.'+subdomain})
         if AOS.imageVersion >= "3.3.0":
-           AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
            #AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -', ssh=False)
            AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
            AOS.do_permission("add-cluster-role-to-user","oauth-editor",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
@@ -615,7 +615,6 @@ class AOS(object):
            AOS.run_ssh_command("oc create configmap logging-deployer  --from-literal kibana-hostname={}.{} --from-literal public-master-url={} --from-literal es-cluster-size={} --from-literal enable-ops-cluster={} --from-literal use-journal={}".format(AOS.kibanaAppname,subdomain,AOS.MasterURL,AOS.ESClusterSize,AOS.enableKibanaOps,AOS.useJournal), ssh=False)
            AOS.run_ssh_command("oc label node -l registry=enabled logging-infra-fluentd=true --overwrite", ssh=False)
         elif AOS.imageVersion > "3.2.1" and AOS.imageVersion < "3.3.0":
-           AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
            AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-elasticsearch".format(AOS.osProject))
            AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
            AOS.do_permission("add-role-to-user","edit",user="--serviceaccount logging-deployer")
@@ -627,7 +626,6 @@ class AOS(object):
            if "true" in AOS.enablePV:
               paraList.extend(AOS.make_para_list({'ES_PVC_SIZE':AOS.PVCSize,'ES_PVC_PREFIX':'es-pv-','MODE':AOS.deployMode}))
         else:
-           AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
            AOS.delete_oauth()
            AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-elasticsearch".format(AOS.osProject))
            AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -', ssh=False)
@@ -649,8 +647,6 @@ class AOS(object):
            cmd = "oc new-app logging-deployer-template -p IMAGE_PREFIX={},IMAGE_VERSION={},MODE={}".format(AOS.imagePrefix,AOS.imageVersion,AOS.deployMode)
            #cmd = "oc new-app logging-deployer-template -p IMAGE_PREFIX={},IMAGE_VERSION={},MODE={},MASTER_URL={}".format(AOS.imagePrefix,AOS.imageVersion,AOS.deployMode,AOS.MasterURL)
         AOS.run_ssh_command(cmd,ssh=False)
-
-        AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
 
     @staticmethod
     def clone_gitrepo(repoName):
