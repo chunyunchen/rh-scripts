@@ -612,7 +612,7 @@ class AOS(object):
            AOS.do_permission("add-cluster-role-to-user","oauth-editor",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
            AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
            AOS.do_permission("add-scc-to-user","privileged",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
-           AOS.run_ssh_command("oc create configmap logging-deployer  --from-literal kibana-hostname={}.{} --from-literal public-master-url={} --from-literal es-cluster-size={} --from-literal enable-ops-cluster={} --from-literal use-journal={}".format(AOS.kibanaAppname,subdomain,AOS.MasterURL,AOS.ESClusterSize,AOS.enableKibanaOps,AOS.useJournal), ssh=False)
+           AOS.run_ssh_command("oc create configmap logging-deployer  --from-literal kibana-hostname={}.{subd} --from-literal public-master-url={} --from-literal es-cluster-size={} --from-literal enable-ops-cluster={} --from-literal use-journal={} --from-literal kibana-ops-hostname={}.{subd} --from-literal es-instance-ram={}".format(AOS.kibanaAppname,subd=subdomain,AOS.MasterURL,AOS.ESClusterSize,AOS.enableKibanaOps,AOS.useJournal,AOS.kibanaOpsAppname,AOS.ESRam), ssh=False)
            AOS.run_ssh_command("oc label node -l registry=enabled logging-infra-fluentd=true --overwrite", ssh=False)
         elif AOS.imageVersion > "3.2.1" and AOS.imageVersion < "3.3.0":
            AOS.do_permission("add-scc-to-user","hostmount-anyuid",user="system:serviceaccount:{}:aggregated-logging-elasticsearch".format(AOS.osProject))
