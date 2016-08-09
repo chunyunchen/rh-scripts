@@ -516,7 +516,7 @@ class AOS(object):
            paraList.extend(AOS.make_para_list({'MODE':AOS.deployMode}))
 
         AOS.run_ssh_command("oc new-app metrics-deployer-template -p {}".format(','.join(paraList)), ssh=False)
-        AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*Running.*")
+        AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*1/1.*Running.*")
         if "openshift" in AOS.osProject:
            AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
         cprint("Success!","green")
@@ -574,7 +574,7 @@ class AOS(object):
            AOS.run_ssh_command("oc scale dc/logging-curator-ops --replicas=1", ssh=False)
            AOS.run_ssh_command("oc scale rc/logging-curator-ops-1 --replicas=1", ssh=False)
 
-        AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-\w+.+Running", dstNum=dcNum)
+        AOS.resource_validate("oc get pods -n {}".format(AOS.osProject), r"logging-\w+.+[1/1|2/2].+Running", dstNum=dcNum)
         cprint("Success!","green")
    
     @classmethod
