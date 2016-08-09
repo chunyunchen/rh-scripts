@@ -524,7 +524,6 @@ class AOS(object):
     @classmethod
     def clean_logging_objects(cls):
         cprint("Cleanup resources related to logging stack...",'blue')
-        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         AOS.run_ssh_command("oc delete all --selector logging-infra=kibana", ssh=False)
         AOS.run_ssh_command("oc delete all --selector logging-infra=fluentd", ssh=False)
         AOS.run_ssh_command("oc delete all --selector logging-infra=elasticsearch", ssh=False)
@@ -533,7 +532,6 @@ class AOS(object):
         AOS.run_ssh_command("oc delete oauthclients kibana-proxy", ssh=False)
         AOS.run_ssh_command("oc delete secret logging-deployer logging-fluentd logging-elasticsearch logging-es-proxy logging-kibana logging-kibana-proxy logging-kibana-ops-proxy", ssh=False)
         AOS.run_ssh_command("oc delete ClusterRole daemonset-admin -n openshift && oc delete ClusterRole oauth-editor -n openshift")
-        AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
 
     @staticmethod
     def set_mode_for_logging():
@@ -587,7 +585,6 @@ class AOS(object):
         AOS.run_ssh_command('oc patch configmap logging-deployer  -p {}'.format(pipes.quote('{"data":{"es-cluster-size":"'+AOS.ESClusterSize+'"}}')), ssh=False)
         cmd = "oc new-app logging-deployer-template -p IMAGE_PREFIX={},IMAGE_VERSION={},MODE={}".format(AOS.imagePrefix,AOS.imageVersion,AOS.deployMode)
         AOS.run_ssh_command(cmd,ssh=False)
-        AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
  
     @classmethod
     def deploy_logging(cls):
