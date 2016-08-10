@@ -512,7 +512,7 @@ class AOS(object):
                                      'CASSANDRA_NODES': AOS.cassandraNodes,\
                                      'CASSANDRA_PV_SIZE':AOS.PVCSize})
         if AOS.imageVersion >= "3.2.0" and AOS.imageVersion < "3.3.0":
-           paraList.extend(AOS.make_para_list({'MODE':AOS.deployMode,'USER_WRITE_ACCESS':AOS.userWriteAccess}))
+           paraList.extend(AOS.make_para_list({'MODE':AOS.deployMode}))
         elif AOS.imageVersion >= "3.3.0":
            paraList.extend(AOS.make_para_list({'USER_WRITE_ACCESS':AOS.userWriteAccess}))
 
