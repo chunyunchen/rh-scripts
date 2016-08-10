@@ -477,7 +477,7 @@ class AOS(object):
     @staticmethod
     def cleanup_metics():
         cprint("Cleanuping metrics deployments under project *{}*".format(AOS.osProject),'blue')
-        deleted_obj_with_lable = ["all","secrets","sa","templates"]
+        deleted_obj_with_lable = ["all","secrets","sa","templates","pvc"]
         deleted_obj_without_lable = ["sa metrics-deployer","secret metrics-deployer"]
         for obj in deleted_obj_with_lable:
             AOS.run_ssh_command("oc delete {} --selector=metrics-infra -n {}".format(obj,AOS.osProject), ssh=False)
@@ -487,7 +487,7 @@ class AOS(object):
     @staticmethod
     def update_metric_deployer_template(project="openshift"):
         hasWriteAccessParameter = AOS.run_ssh_command("oc get template metrics-deployer-template  -o yaml -n {}| grep USER_WRITE_ACCESS".format(project))
-        if not hasWriteAccessParameter:
+        if not hasWriteAccessParameter and AOS.imageVersion >= "3.3.0":
            cprint("Updating metrics deployer template in project {}".format(project), "blue")
            AOS.run_ssh_command("oc delete template metrics-deployer-template -n {proj}; oc create -f {tpFile} -n {proj}".format(proj=project,tpFile=AOS.HCHStack))
 
