@@ -509,11 +509,12 @@ class AOS(object):
                                      'IMAGE_VERSION':AOS.imageVersion,\
                                      'USE_PERSISTENT_STORAGE':AOS.enablePV,\
                                      'MASTER_URL':AOS.MasterURL,\
-                                     'USER_WRITE_ACCESS':AOS.userWriteAccess,\
                                      'CASSANDRA_NODES': AOS.cassandraNodes,\
                                      'CASSANDRA_PV_SIZE':AOS.PVCSize})
-        if AOS.imageVersion >= "3.2.1":
-           paraList.extend(AOS.make_para_list({'MODE':AOS.deployMode}))
+        if AOS.imageVersion >= "3.2.0" and AOS.imageVersion < "3.3.0":
+           paraList.extend(AOS.make_para_list({'MODE':AOS.deployMode,'USER_WRITE_ACCESS':AOS.userWriteAccess}))
+        elif AOS.imageVersion >= "3.3.0":
+           paraList.extend(AOS.make_para_list({'USER_WRITE_ACCESS':AOS.userWriteAccess}))
 
         AOS.run_ssh_command("oc new-app metrics-deployer-template -p {}".format(','.join(paraList)), ssh=False)
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*1/1.*Running.*")
