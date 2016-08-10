@@ -486,10 +486,11 @@ class AOS(object):
     
     @staticmethod
     def update_metric_deployer_template(project="openshift"):
-        hasWriteAccessParameter = AOS.run_ssh_command("oc get template metrics-deployer-template  -o yaml -n {}| grep USER_WRITE_ACCESS".format(project))
-        if not hasWriteAccessParameter and AOS.imageVersion >= "3.3.0":
-           cprint("Updating metrics deployer template in project {}".format(project), "blue")
-           AOS.run_ssh_command("oc delete template metrics-deployer-template -n {proj}; oc create -f {tpFile} -n {proj}".format(proj=project,tpFile=AOS.HCHStack))
+        if AOS.imageVersion >= "3.3.0":
+           hasWriteAccessParameter = AOS.run_ssh_command("oc get template metrics-deployer-template  -o yaml -n {}| grep USER_WRITE_ACCESS".format(project))
+           if not hasWriteAccessParameter:
+              cprint("Updating metrics deployer template in project {}".format(project), "blue")
+              AOS.run_ssh_command("oc delete template metrics-deployer-template -n {proj}; oc create -f {tpFile} -n {proj}".format(proj=project,tpFile=AOS.HCHStack))
 
     @classmethod
     def start_metrics_stack(cls):
