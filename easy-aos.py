@@ -265,8 +265,20 @@ class AOS(object):
         AOS.set_ssh_master()
         AOS.ssh_validation()
         cprint("Done,Good!",'green')
-        AOS.echo_user_info()
         AOS.set_masterUrl()
+
+        if not AOS.imageVersion:
+           AOS.imageVersion = AOS.get_image_tag_version()
+        AOS.echo_user_info()
+
+    @staticmethod
+    def get_image_tag_version():
+        cprint("Get the master major version to set image version tag","blue")
+        output = AOS.run_ssh_command("oadm version")
+        if output:
+           tagVersion = re.match("oadm\s+v(\d+\.\d+\.\d+).*",output).group(1)
+           return tagVersion
+        return "latest"
 
     @staticmethod
     def run_ssh_command(cmd, asShell=True,ssh=True,expectedNum=None,echoRe=None):
@@ -557,8 +569,6 @@ class AOS(object):
            imageStreams = AOS.run_ssh_command("oc get is --no-headers -n {}".format(AOS.osProject), ssh=False)
            AOS.set_annotation(imageStreams)
         dcNum = 3
-        #if AOS.imageVersion > "3.2.1":
-        #   dcNum = 4
         if "true" in AOS.enableKibanaOps:
            dcNum += 2
            if AOS.imageVersion > "3.2.1":
@@ -606,7 +616,6 @@ class AOS(object):
                                      'ES_CLUSTER_SIZE':AOS.ESClusterSize,\
                                      'KIBANA_OPS_HOSTNAME':AOS.kibanaOpsAppname+'.'+subdomain})
         if AOS.imageVersion >= "3.3.0":
-           #AOS.run_ssh_command('echo -e "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n    name: logging-deployer\nsecrets:\n- name: logging-deployer"| oc create -f -', ssh=False)
            AOS.run_ssh_command("oc new-app logging-deployer-account-template", ssh=False)
            AOS.do_permission("add-cluster-role-to-user","oauth-editor",user="system:serviceaccount:{}:logging-deployer".format(AOS.osProject))
            AOS.do_permission("add-cluster-role-to-user","cluster-reader",user="system:serviceaccount:{}:aggregated-logging-fluentd".format(AOS.osProject))
@@ -644,7 +653,6 @@ class AOS(object):
            cmd = "oc new-app logging-deployer-template -p {}".format(','.join(paraList))
         else:
            cmd = "oc new-app logging-deployer-template -p IMAGE_PREFIX={},IMAGE_VERSION={},MODE={}".format(AOS.imagePrefix,AOS.imageVersion,AOS.deployMode)
-           #cmd = "oc new-app logging-deployer-template -p IMAGE_PREFIX={},IMAGE_VERSION={},MODE={},MASTER_URL={}".format(AOS.imagePrefix,AOS.imageVersion,AOS.deployMode,AOS.MasterURL)
         AOS.run_ssh_command(cmd,ssh=False)
 
     @staticmethod
@@ -801,7 +809,7 @@ class AOS(object):
                   {chd} a+rwX /etc/origin/master/admin.kubeconfig; \
                   {chd} +r /etc/origin/master/openshift-registry.kubeconfig;'.format(chd=chmod)
         AOS.run_ssh_command(preCmd)
-        #          oc create serviceaccount registry -n default; \
+       #          oc create serviceaccount registry -n default; \
        #           oc create serviceaccount router -n default; \
         createCmd = "oadm policy add-scc-to-user hostnetwork -z router;\
                      oadm policy add-cluster-role-to-user system:router system:serviceaccount:default:router; \
