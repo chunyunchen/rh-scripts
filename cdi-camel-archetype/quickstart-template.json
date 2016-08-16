@@ -19,6 +19,7 @@
     {
       "name": "GIT_REPO",
       "required": true,
+      "value": "https://github.com/chunyunchen/cdi-camel-archetype.git",
       "description": "Git repository, required"
     },
     {
@@ -33,7 +34,7 @@
     },
     {
       "name": "BUILDER_VERSION",
-      "value": "1.2.5",
+      "value": "latest",
       "description": "Builder version"
     },
     {
