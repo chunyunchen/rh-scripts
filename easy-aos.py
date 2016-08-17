@@ -350,11 +350,12 @@ class AOS(object):
     def add_project(cls):
         if AOS.delProject:
            if "deploy" not in AOS.deployMode:
-              cprint("Deleting project *{}*".format(AOS.osProject),'blue')
-              project = re.findall(AOS.osProject,AOS.run_ssh_command("oc get project",ssh=False))
-              if 0 < len(project):
-                 AOS.run_ssh_command("oc delete project {}".format(AOS.osProject),ssh=False)
-                 AOS.resource_validate("oc get projects", r"{}\s+".format(AOS.osProject), dstNum=0)
+              #cprint("Deleting project *{}*".format(AOS.osProject),'blue')
+              #project = re.findall(AOS.osProject,AOS.run_ssh_command("oc get project",ssh=False))
+              #if 0 < len(project):
+              #   AOS.run_ssh_command("oc delete project {}".format(AOS.osProject),ssh=False)
+              #   AOS.resource_validate("oc get projects", r"{}\s+".format(AOS.osProject), dstNum=0)
+              AOS.clean_logging_objects()
            else:
               AOS.cleanup_metics()
 
@@ -602,7 +603,7 @@ class AOS(object):
     def deploy_logging(cls):
         AOS.login_server()
         cprint("Start deploying logging stack pods...",'blue')
-        AOS.clean_logging_objects()
+      #  AOS.clean_logging_objects()
         subdomain = AOS.get_subdomain()
         AOS.run_ssh_command("oc secrets new logging-deployer nothing=/dev/null",ssh=False)
 
