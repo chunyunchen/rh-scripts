@@ -111,7 +111,7 @@ class AOS(object):
         config.set('component_shared', 'deploy_mode', 'deploy')
         config.set('component_shared', 'token_user_email', 'chunchen@redhat.com')
         config.set('logging','efk_deployer','https://raw.githubusercontent.com/openshift/origin-aggregated-logging/master/deployer/deployer.yaml')
-        config.set('logging', 'cassandra_nodes','2')
+        config.set('metrics', 'cassandra_nodes','2')
         config.set('logging', 'use_journal', 'false')
         config.set('metrics', 'user_write_access', 'false')
 
@@ -156,7 +156,7 @@ class AOS(object):
         AOS.ESClusterSize = config.get("logging","elastic_cluster_size")
         AOS.PVCSize = config.get("component_shared","pvc_size")
         AOS.EFKDeployer = config.get("logging","efk_deployer")
-        AOS.cassandraNodes = config.get("logging","cassandra_nodes")
+        AOS.cassandraNodes = config.get("metrics","cassandra_nodes")
         AOS.useJournal = config.get("logging", "use_journal")
         AOS.userWriteAccess = config.get("metrics","user_write_access")
 
@@ -445,15 +445,21 @@ class AOS(object):
         AOS.run_ssh_command("rm -f dc.json", ssh=False)
 
     @staticmethod
-    def add_pull_secret_for_registryqe_repo():
+    def create_secret_for_registryqe():
+        cprint("Creating docker pull secret for registry.qe","blue")
+        hasSecret = AOS.run_ssh_command("oc get secret -n {} | grep mysecret".format(AOS.osProject), ssh=False)
+        if not hasSecret:
+           AOS.run_ssh_command("oc secrets new-dockercfg mysecret --docker-server=registry.qe.openshift.com --docker-username={} --docker-email={} --docker-password={}".format(AOS.TokenUser, AOS.TokenUserEMail, AOS.RegistryQEToken), ssh=False)
+
+    @staticmethod
+    def add_pull_secret_for_registryqe_repo(saList=["aggregated-logging-elasticsearch","aggregated-logging-fluentd","aggregated-logging-kibana"]):
         if not AOS.RegistryQEToken or not AOS.TokenUser or not AOS.TokenUserEMail:
            cprint("Please set 'registryqe_token', 'token_user' and 'token_user_email' under [image] section!", "red")
            sys.exit(1)
-        AOS.run_ssh_command("oc secrets new-dockercfg mysecret --docker-server=registry.qe.openshift.com --docker-username={} --docker-email={} --docker-password={}".format(AOS.TokenUser, AOS.TokenUserEMail, AOS.RegistryQEToken), ssh=False)
-        AOS.run_ssh_command("oc secrets add aggregated-logging-elasticsearch mysecret --for=pull", ssh=False)
-        AOS.run_ssh_command("oc secrets add aggregated-logging-fluentd mysecret --for=pull", ssh=False)
-        AOS.run_ssh_command("oc secrets add aggregated-logging-kibana mysecret --for=pull", ssh=False)
-        AOS.run_ssh_command("oc secrets add metrics-deployer mysecret --for=pull", ssh=False)
+        AOS.create_secret_for_registryqe()
+        cprint("Adding docker pull secret for registry.qe","blue")
+        for sa in saList:
+            AOS.run_ssh_command("oc secrets add {} mysecret --for=pull".format(sa), ssh=False)
 
     @classmethod
     def add_weburl_for_logging_and_metrics(cls):
@@ -491,7 +497,7 @@ class AOS(object):
     def cleanup_metics():
         cprint("Cleanuping metrics deployments under project *{}*".format(AOS.osProject),'blue')
         deleted_obj_with_lable = ["all","secrets","sa","templates","pvc"]
-        deleted_obj_without_lable = ["sa metrics-deployer","secret metrics-deployer"]
+        deleted_obj_without_lable = ["sa metrics-deployer","secret metrics-deployer","secret mysecret"]
         for obj in deleted_obj_with_lable:
             AOS.run_ssh_command("oc delete {} --selector=metrics-infra -n {}".format(obj,AOS.osProject), ssh=False)
         for obj in deleted_obj_without_lable:
@@ -511,12 +517,15 @@ class AOS(object):
            AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         AOS.login_server()
         AOS.update_metric_deployer_template()
+
         cprint("{} metrics stack...".format(AOS.deployMode),'blue')
         if "deploy" == AOS.deployMode:
            AOS.run_ssh_command("oc create serviceaccount metrics-deployer",ssh=False)
            AOS.do_permission("add-cluster-role-to-user", "cluster-reader", user="system:serviceaccount:%s:heapster" % AOS.osProject)
            AOS.do_permission("add-role-to-user","edit", user="system:serviceaccount:%s:metrics-deployer" % AOS.osProject)
            AOS.run_ssh_command("oc secrets new metrics-deployer nothing=/dev/null",ssh=False)
+           if "registry.qe" in AOS.imagePrefix:
+              AOS.add_pull_secret_for_registryqe_repo(["metrics-deployer"])
         subdomain = AOS.get_subdomain()
         paraList = AOS.make_para_list({'HAWKULAR_METRICS_HOSTNAME':AOS.hawkularMetricsAppname+'.'+subdomain,\
                                      'IMAGE_PREFIX':AOS.imagePrefix,\
@@ -531,6 +540,12 @@ class AOS(object):
            paraList.extend(AOS.make_para_list({'USER_WRITE_ACCESS':AOS.userWriteAccess}))
 
         AOS.run_ssh_command("oc new-app metrics-deployer-template -p {}".format(','.join(paraList)), ssh=False)
+        if "registry.qe" in AOS.imagePrefix:
+           output = AOS.run_ssh_command("oc get pod --no-headers -n {}|grep metrics-deployer".format(AOS.osProject), ssh=False)
+           deployerPodName = output.split()[0]
+           AOS.resource_validate("oc get pods --no-headers -n {}".format( AOS.osProject),r".*metrics-deployer.*Running.*",dstNum=1)
+           AOS.resource_validate("oc logs {} -n {}".format(deployerPodName, AOS.osProject),r".*VALIDATING THE DEPLOYMENT.*",dstNum=1)
+           AOS.add_pull_secret_for_registryqe_repo(["heapster","hawkular","cassandra"])
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*1/1.*Running.*")
         if "openshift" in AOS.osProject:
            AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
@@ -555,10 +570,20 @@ class AOS(object):
         if "redeploy" == AOS.deployMode:
            AOS.deployMode = "reinstall"
 
+    @staticmethod
+    def update_logging_deployer_template(project="openshift"):
+        cprint("Updating logging deployer template in project {}".format(project), "blue")
+        output = AOS.run_ssh_command("oc get template logging-deployer-template -o yaml -n {proj} | grep image: ".format(proj=project))
+        if AOS.imageVersion >= "3.3.0" and "logging-deployer" not in output:
+           AOS.run_ssh_command("oc get template logging-deployer-template -o yaml -n {proj} | sed  's/\(image:\s.*\)logging-deployment\(.*\)/\1logging-deployer\2/g' | oc apply -n {proj} -f -".format(proj=project))
+        elif AOS.imageVersion < "3.3.0" and "logging-deployment" not in output:
+           AOS.run_ssh_command("oc get template logging-deployer-template -o yaml -n {proj} | sed  's/\(image:\s.*\)logging-deployer\(.*\)/\1logging-deployment\2/g' | oc apply -n {proj} -f -".format(proj=project))
+
     @classmethod
     def start_logging_stack(cls):
         AOS.set_mode_for_logging()
         AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
+        AOS.update_logging_deployer_template()
         if "reinstall" in AOS.deployMode:
            AOS.redeploy_logging()
         elif "install" in AOS.deployMode:
