@@ -509,7 +509,7 @@ class AOS(object):
            hasWriteAccessParameter = AOS.run_ssh_command("oc get template metrics-deployer-template  -o yaml -n {}| grep USER_WRITE_ACCESS".format(project))
            if not hasWriteAccessParameter:
               cprint("Updating metrics deployer template in project {}".format(project), "blue")
-              AOS.run_ssh_command("oc delete template metrics-deployer-template -n {proj}; oc create -f {tpFile} -n {proj}".format(proj=project,tpFile=AOS.HCHStack))
+              AOS.run_ssh_command("oc get template metrics-deployer-template  -o yaml -n {proj} > ~/metrics-deployer-template.bak.old && oc delete template metrics-deployer-template -n {proj}; oc create -f {tpFile} -n {proj}".format(proj=project,tpFile=AOS.HCHStack))
 
     @classmethod
     def start_metrics_stack(cls):
@@ -884,8 +884,8 @@ class AOS(object):
     
         # Sub-command for deploying APIMan stack
         apiman = subCommands.add_parser('apiman', parents=[commonArgs,subCommonArgs],\
-                                                    description="Deploy APIMan stack pods",\
-                                                    help="Deploy APIMan stack pods")
+                                                    description="Deploy APIMan stack pods [Deprecated]",\
+                                                    help="Deploy APIMan stack pods [Deprecated]")
         apiman.set_defaults(subcommand=AOS.start_apiman_stack)
 
         # Enable logging and metrics view in OpenShift console
