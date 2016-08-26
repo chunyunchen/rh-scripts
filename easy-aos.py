@@ -26,6 +26,7 @@ except ImportError:
 
 config = SafeConfigParser()
 
+# Show friendly messages when Ctrl+C to terminate
 def signal_handler(signal, frame):
     cprint('\nStopped by Ctrl+C!','red')
     sys.exit(1)
@@ -72,6 +73,7 @@ class AOS(object):
     isOSEServer = False
     MasterURL = ""
 
+    # Create the default configration file
     @staticmethod
     def generate_default_config():
         '''Create the default config file if not exists'''
@@ -196,6 +198,7 @@ class AOS(object):
             if value and aosVar: 
                setattr(AOS, aosVar, value)
 
+    # Get the OpenShift service public port
     @classmethod
     def get_master_server_port(cls):
         cprint("Getting service port from master server:", "blue")
@@ -235,6 +238,7 @@ class AOS(object):
         prefix_str = '>' * len('Running Command')
         print("[{}]: {}".format(prefix_str, msg))
 
+    # Check if can ssh into the master host
     @staticmethod
     def ssh_validation():
         try:
@@ -253,6 +257,7 @@ class AOS(object):
            AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, ssh_master.strip())
            AOS.ScpFileFromMaster = "scp -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s:" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, ssh_master.strip())
 
+    # Check if the configrations are set correctly.
     @classmethod
     def check_validation(cls,args):
         cprint("Checking Confiurations...",'blue')
@@ -298,6 +303,7 @@ class AOS(object):
            return tagVersion
         return "latest"
 
+    # Execute oc related commands on master host or local machine
     @staticmethod
     def run_ssh_command(cmd, asShell=True,ssh=True,expectedNum=None,echoRe=None):
         remote_command = cmd
@@ -326,6 +332,7 @@ class AOS(object):
                 outputs = check_output(localCMD, shell=asShell, stderr=STDOUT)
                 return outputs
 
+    # Add permission for serviceaccount or user
     @classmethod
     def do_permission(cls,role_type,role_name,user=None):
 
@@ -346,6 +353,7 @@ class AOS(object):
         command = "%s %s %s %s" % (pre_cmd,role_type,role_name,user)
         AOS.run_ssh_command(command,ssh=enableSSH)
 
+    # Check the status for resource
     @staticmethod
     def resource_validate(cmd, reStr, dstNum=3, enableSsh=False):
         cprint("Wait above operation to finished...",'blue')
@@ -384,6 +392,7 @@ class AOS(object):
 
         AOS.run_ssh_command("oc project {}".format(AOS.osProject), ssh=False)
 
+    # Make sure "oc login" on time by manual
     @staticmethod
     def loginedOnce():
         loginCMD = AOS.get_login_cmd(AOS.MasterURL)
@@ -420,6 +429,7 @@ class AOS(object):
         subdomain = outputs.split()[-1].strip('"')
         return subdomain
 
+    # Delete oauthclients objects for logging deployment
     @classmethod
     def delete_oauth(cls):
         oauth = re.findall(r"kibana-proxy", AOS.run_ssh_command("oc get oauthclients", ssh=False))
@@ -430,6 +440,7 @@ class AOS(object):
             AOS.resource_validate("oc get oauthclients",r"kibana-proxy -n openshift",dstNum=0)
 
 
+    # Patch insecure registry label for logging deployment(image tag <=3.2.1)
     @classmethod
     def set_annotation(cls, imageStreams):
         cprint('Import tags for imagestreams...','blue')
@@ -478,6 +489,7 @@ class AOS(object):
         for sa in saList:
             AOS.run_ssh_command("oc secrets add {} mysecret --for=pull".format(sa), ssh=False)
 
+    # Add public url for logging/metrics in master config file
     @classmethod
     def add_weburl_for_logging_and_metrics(cls):
         masterConfig = os.path.join(AOS.masterConfigRoot, AOS.masterConfigFile)
@@ -494,6 +506,7 @@ class AOS(object):
         else:
            cprint("Failed to restart master server due to not found master service",'red')
 
+    # Enable logging/metrics on OpenShift console
     @classmethod
     def enable_logging_metircs_web_console(cls):
         AOS.add_weburl_for_logging_and_metrics()
@@ -528,6 +541,7 @@ class AOS(object):
               cprint("Updating metrics deployer template in project {}".format(project), "blue")
               AOS.run_ssh_command("oc get template metrics-deployer-template  -o yaml -n {proj} > ~/metrics-deployer-template.bak.old && oc delete template metrics-deployer-template -n {proj}; oc create -f {tpFile} -n {proj}".format(proj=project,tpFile=AOS.HCHStack))
 
+    # Deploy metrics stack
     @classmethod
     def start_metrics_stack(cls):
         if "openshift" in AOS.osProject:
@@ -596,6 +610,7 @@ class AOS(object):
         elif AOS.imageVersion < "3.3.0" and "logging-deployment" not in output:
            AOS.run_ssh_command("oc get template logging-deployer-template -o yaml -n {proj} | sed  's/\(image:\s.*\)logging-deployer\(.*\)/\1logging-deployment\2/g' | oc apply -n {proj} -f -".format(proj=project))
 
+    # Deploy / re-deploy logging metrics
     @classmethod
     def start_logging_stack(cls):
         AOS.set_mode_for_logging()
@@ -698,6 +713,7 @@ class AOS(object):
            cmd = "oc new-app logging-deployer-template -p IMAGE_PREFIX={},IMAGE_VERSION={},MODE={}".format(AOS.imagePrefix,AOS.imageVersion,AOS.deployMode)
         AOS.run_ssh_command(cmd,ssh=False)
 
+    # Git clone metrics/logging/apiman for OpenShift origin env if needed
     @staticmethod
     def clone_gitrepo(repoName):
         cprint("Clone git repo for {}".format(repoName),"blue")
@@ -723,6 +739,7 @@ class AOS(object):
         registryIpPort = AOS.run_ssh_command('oc get svc docker-registry --template="{{.spec.portalIP}}:{{ with index .spec.ports 0 }}{{ .port }}{{end}}"')
         return registryIpPort+"/apiman/"
 
+    # Deploy apiman stack [Deprecated]
     @classmethod
     def start_apiman_stack(cls):
         #AOS.clone_gitrepo("origin-apiman")
@@ -749,6 +766,7 @@ class AOS(object):
         cprint("Success!","green")
         cprint("Access APIMan Console via browser: ~/link.html", "green")
 
+    # Use "sudo" when starting OpenSfhit origin service
     @staticmethod
     def sudo_hack(cmd):
        if "root" != AOS.masterUser:
@@ -779,6 +797,7 @@ class AOS(object):
            AOS.run_ssh_command("oc config use-context default/%s:8443/system:admin && %s -p /root/.kube && %s /etc/origin/master/admin.kubeconfig /root/.kube/config"\
                             % (master,AOS.sudo_hack('mkdir'),AOS.sudo_hack('cp')))
 
+    # Start OpenShift origin service
     @classmethod
     def start_origin_openshift(cls):
         cprint("Starting OpenShift Service...","blue")
@@ -839,6 +858,7 @@ class AOS(object):
         if resources:
            AOS.run_ssh_command(delCmd, ssh=enabledSSH)
 
+    # Create router and docker registry pods for OpenShift origin
     @staticmethod
     def create_default_pods():
         resourceList = [":templates:openshift",":dc:default",":rc:default",":pod:default","docker-registry:svc:default","router:svc:default",":imagestreams:openshift","router:sa:default","router-router-role:clusterrolebinding:default","registry:sa:default","registry-registry-role:clusterrolebinding:default"]
@@ -860,6 +880,7 @@ class AOS(object):
                      oadm registry -n default --config=/etc/origin/master/admin.kubeconfig;"
         AOS.run_ssh_command(createCmd)
 
+    # The enter point for sub-commands
     @classmethod
     def args_handler(cls):
         # Global options
