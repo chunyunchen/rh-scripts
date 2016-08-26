@@ -134,7 +134,7 @@ class AOS(object):
            config.write(defaultconfig)
 
         cmd = "sed -i "+"'"+"s/^#\(.*\)=/#\\1/g"+"'"+" {}".format("./aos.conf")
-        AOS.run_ssh_command(cmd)
+        #AOS.run_ssh_command(cmd)
 
     @staticmethod
     def show_current_config():
