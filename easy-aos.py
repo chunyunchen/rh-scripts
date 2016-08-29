@@ -55,15 +55,16 @@ class AOS(object):
     enableKibanaOps=""
     ESRam=""
     ESClusterSize=1
-    PVCSize = 10
+    PVCSize = 0
     cassandraNodes = 1
     EFKDeployer=""
     RegistryQEToken = ""
     TokenUser = ""
     TokenUserEMail = ""
     deployMode = ""
-    useJournal = "false"
+    useJournal = ""
     userWriteAccess = ""
+    dynamicallyPV = ""
 
     SSHIntoMaster=""
     ScpFileFromMaster=""
@@ -98,6 +99,8 @@ class AOS(object):
         config.set('global','kube_config_file','admin.kubeconfig')
         config.set('ssh','# The pem file for ssh into master host','')
         config.set('ssh','pem_file','')
+        config.set('metrics','# Map to metrics parameter DYNAMICALLY_PROVISION_STORAGE','')
+        config.set('metrics','dynamically_provision_storage','true')
         config.set('metrics','# Map to metrics parameter HAWKULAR_METRICS_HOSTNAME','')
         config.set('metrics','hawkular_metrics_appname','hawkular-metrics')
         config.set('logging','# Map to logging parameter kibana-ops-hostname','')
@@ -116,7 +119,7 @@ class AOS(object):
         config.set('component_shared','#image_prefix2','brew-pulp-docker01.web.qa.ext.phx1.redhat.com:8888/openshift3/')
         config.set('component_shared','#image_prefix3','registry.ops.openshift.com/openshift3/')
         config.set('component_shared','image_version','latest')
-        config.set('component_shared','enable_pv','false')
+        config.set('component_shared','enable_pv','true')
         config.set('logging','elastic_ram','1G')
         config.set('logging','elastic_cluster_size','1')
         config.set('component_shared', 'pvc_size', '10')
@@ -179,6 +182,7 @@ class AOS(object):
         AOS.cassandraNodes = config.get("metrics","cassandra_nodes")
         AOS.useJournal = config.get("logging", "use_journal")
         AOS.userWriteAccess = config.get("metrics","user_write_access")
+        AOS.dynamicallyPV = config.get("metrics","dynamically_provision_storage")
 
         if AOS.osUser:
            AOS.osProject = re.match(r'\w+',AOS.osUser).group(0)
@@ -563,12 +567,13 @@ class AOS(object):
                                      'IMAGE_VERSION':AOS.imageVersion,\
                                      'USE_PERSISTENT_STORAGE':AOS.enablePV,\
                                      'MASTER_URL':AOS.MasterURL,\
+                                     'DYNAMICALLY_PROVISION_STORAGE':AOS.dynamicallyPV,\
                                      'CASSANDRA_NODES': AOS.cassandraNodes,\
                                      'CASSANDRA_PV_SIZE':AOS.PVCSize})
         if AOS.imageVersion >= "3.2.0" and AOS.imageVersion < "3.3.0":
            paraList.extend(AOS.make_para_list({'MODE':AOS.deployMode}))
         elif AOS.imageVersion >= "3.3.0":
-           paraList.extend(AOS.make_para_list({'USER_WRITE_ACCESS':AOS.userWriteAccess}))
+           paraList.extend(AOS.make_para_list({'MODE':AOS.deployMode,'USER_WRITE_ACCESS':AOS.userWriteAccess}))
 
         AOS.run_ssh_command("oc new-app metrics-deployer-template -p {}".format(','.join(paraList)), ssh=False)
         if "registry.qe" in AOS.imagePrefix:
