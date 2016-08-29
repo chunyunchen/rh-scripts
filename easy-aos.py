@@ -65,6 +65,7 @@ class AOS(object):
     useJournal = ""
     userWriteAccess = ""
     dynamicallyPV = ""
+    haHost = ""
 
     SSHIntoMaster=""
     ScpFileFromMaster=""
@@ -84,6 +85,7 @@ class AOS(object):
         config.add_section("logging")
         config.add_section("component_shared")
         config.add_section("ssh")
+        config.set('global','ha_host','')
         config.set('global','# The OpenShift user','')
         config.set('global','os_user','')
         config.set('global',"# The OpenShift user's password",'')
@@ -153,6 +155,7 @@ class AOS(object):
     @staticmethod
     def get_config(args):
         config.read(AOS.osConfigFile)
+        AOS.haHost = config.get("global","ha_host")
         AOS.osUser = config.get("global","os_user")
         AOS.osPasswd = config.get("global","os_passwd")
         AOS.osUserToken = config.get("global", "os_user_token")
@@ -548,8 +551,8 @@ class AOS(object):
     # Deploy metrics stack
     @classmethod
     def start_metrics_stack(cls):
-        if "openshift" in AOS.osProject:
-           AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
+       # if "openshift" in AOS.osProject:
+        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         AOS.login_server()
         AOS.update_metric_deployer_template()
 
@@ -583,8 +586,8 @@ class AOS(object):
            AOS.resource_validate("oc logs {} -n {}".format(deployerPodName, AOS.osProject),r".*VALIDATING THE DEPLOYMENT.*",dstNum=1)
            AOS.add_pull_secret_for_registryqe_repo(["heapster","hawkular","cassandra"])
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*1/1.*Running.*")
-        if "openshift" in AOS.osProject:
-           AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
+       # if "openshift" in AOS.osProject:
+        AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
         cprint("Success!","green")
 
     @classmethod
