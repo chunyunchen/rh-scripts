@@ -352,7 +352,7 @@ class AOS(object):
         pre_cmd = "oc policy"
         if re.match(r".*(cluster|scc-).*",role_type):
             enableSSH = True
-            pre_cmd = "/var/usrlocal/bin/oadm policy"
+            pre_cmd = "oadm policy"
         if "add-" in role_type:
             if "cluster" in role_type:
                 cprint("Note: *%s* user has '%s' admin role! Be Careful!!!" % (user,role_name),'red')
