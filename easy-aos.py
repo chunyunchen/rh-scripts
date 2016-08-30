@@ -75,6 +75,9 @@ class AOS(object):
     pullLoggingMetricsImage = False
     isOSEServer = False
     MasterURL = ""
+ 
+    ocWithPathOnMaster = ""
+    oadmWithPathOnMaster = ""
 
     # Create the default configration file
     @staticmethod
@@ -297,6 +300,14 @@ class AOS(object):
         if not AOS.imageVersion:
            AOS.imageVersion = AOS.get_image_tag_version()
         AOS.show_user_info()
+        AOS.set_oc_oadm_with_path()
+
+    @classmethod
+    def set_oc_oadm_with_path(cls):
+        oadm_output = AOS.run_ssh_command("whereis oadm")
+        oc_output = AOS.run_ssh_command("whereis oc")
+        AOS.oadmWithPathOnMaster = oadm_output.split()[1]
+        AOS.ocWithPathOnMaster = oc_output.split()[1]
 
     @staticmethod
     def get_image_tag_version():
@@ -314,6 +325,10 @@ class AOS(object):
 
         if ssh:
             remote_command = '%s {}'.format(pipes.quote(AOS.sudo_hack(cmd))) % AOS.SSHIntoMaster
+            if "root" != AOS.masterUser and "oc " in remote_command:
+               remote_command = remote_command.replace("oc ",AOS.ocWithPathOnMaster+" ")
+            if "root" != AOS.masterUser and "oadm " in remote_command:
+               remote_command = remote_command.replace("oadm ",AOS.oadmWithPathOnMaster+" ")
 
         echo_msg = remote_command
         if expectedNum:
