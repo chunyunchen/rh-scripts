@@ -405,7 +405,6 @@ class AOS(object):
             time.sleep(interval)
             iloop -= 1
             output = AOS.run_ssh_command(cmd,ssh=enableSsh,expectedNum=dstNum,echoRe=reStr)
-            cprint(output)
 
         if iloop == 0:
             cprint("Operation is not finished, timeout {} seconds".format(timeout),'yellow')
