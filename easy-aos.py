@@ -263,8 +263,13 @@ class AOS(object):
 
     @staticmethod
     def set_ssh_master():
-        AOS.SSHIntoMaster = "ssh -t -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
-        AOS.ScpFileFromMaster = "scp -t -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s:" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
+        ssh = "ssh"
+        scp = "scp"
+        if "root" != AOS.masterUser:
+           ssh = "ssh -t"
+           scp = "scp -t"
+        AOS.SSHIntoMaster = ssh +" -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
+        AOS.ScpFileFromMaster = scp + " -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s:" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
 
     # Check if the configrations are set correctly.
     @classmethod
@@ -295,12 +300,13 @@ class AOS(object):
         AOS.set_ssh_master()
         AOS.ssh_validation()
         cprint("Local configrations are OK. Good!",'green')
+        if "root" != AOS.masterUser:
+           AOS.set_oc_oadm_with_path()
         AOS.set_master_server_port()
         AOS.set_masterUrl()
         if not AOS.imageVersion:
            AOS.imageVersion = AOS.get_image_tag_version()
         AOS.show_user_info()
-        AOS.set_oc_oadm_with_path()
 
     @classmethod
     def set_oc_oadm_with_path(cls):
@@ -338,7 +344,11 @@ class AOS(object):
         try:
             outputs = check_output(remote_command, shell=asShell, stderr=STDOUT)
             if "ssh " in remote_command:
-                return outputs.split('\n')[0]
+                list_o = outputs.split('\n')
+                if "atomic-openshift" in outputs:
+                    return list_o[:-2]
+                else:
+                    return outputs
             else:
                 return outputs
         except (CalledProcessError,OSError), e:
@@ -353,7 +363,11 @@ class AOS(object):
                 localCMD = '{} --config={}'.format(cmd, 'admin.kubeconfig')
                 outputs = check_output(localCMD, shell=asShell, stderr=STDOUT)
                 if "ssh " in remote_command:
-                   return outputs.split('\n')[0]
+                  list_o = outputs.split('\n')
+                  if "atomic-openshift" in outputs:
+                    return list_o[:-2]
+                  else:
+                    return outputs
                 else:
                    return outputs
 
@@ -527,8 +541,9 @@ class AOS(object):
     @classmethod
     def restart_ose_server(cls):
         master_server_name = AOS.run_ssh_command("systemctl list-unit-files|grep atomic-openshift-master | awk '{print $1}'")
-        if master_server_name:
-           AOS.run_ssh_command("systemctl restart {}".format(master_server_name))
+        for sname in master_server_name:
+            sname = sname.replace("\x0d","")
+            AOS.run_ssh_command("systemctl restart {}".format(sname))
         else:
            cprint("Failed to restart master server due to not found master service",'red')
 
@@ -632,9 +647,9 @@ class AOS(object):
         cprint("Updating logging deployer template in project {}".format(project), "blue")
         output = AOS.run_ssh_command("oc get template logging-deployer-template -o yaml -n {proj} | grep image: ".format(proj=project))
         if AOS.imageVersion >= "3.3.0" and "logging-deployer" not in output:
-           AOS.run_ssh_command("oc get template logging-deployer-template -o yaml -n {proj} | sed  's/\(image:\s.*\)logging-deployment\(.*\)/\1logging-deployer\2/g' | oc apply -n {proj} -f -".format(proj=project))
+           AOS.run_ssh_command("oc get template logging-deployer-template -o yaml -n {proj} | sed  's/\(image:\s.*\)logging-deployment\(.*\)/\\1logging-deployer\\2/g' | oc apply -n {proj} -f -".format(proj=project))
         elif AOS.imageVersion < "3.3.0" and "logging-deployment" not in output:
-           AOS.run_ssh_command("oc get template logging-deployer-template -o yaml -n {proj} | sed  's/\(image:\s.*\)logging-deployer\(.*\)/\1logging-deployment\2/g' | oc apply -n {proj} -f -".format(proj=project))
+           AOS.run_ssh_command("oc get template logging-deployer-template -o yaml -n {proj} | sed  's/\(image:\s.*\)logging-deployer\(.*\)/\\1logging-deployment\\2/g' | oc apply -n {proj} -f -".format(proj=project))
 
     # Deploy / re-deploy logging metrics
     @classmethod
@@ -797,8 +812,8 @@ class AOS(object):
     def sudo_hack(cmd):
        if "root" != AOS.masterUser:
           return "sudo " + cmd
-       elif "openshift" in cmd:
-          return "openshift"
+      # elif "openshift" in cmd:
+      #    return 
        return cmd
 
     @staticmethod
