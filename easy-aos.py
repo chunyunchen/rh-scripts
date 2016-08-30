@@ -223,7 +223,7 @@ class AOS(object):
           AOS.MasterURL = "https://{}:{}".format(AOS.master, AOS.masterPort)
 
     @staticmethod
-    def echo_user_info():
+    def show_user_info():
         cprint("User info:",'blue')
         print("LB host: {}".format(AOS.lbHost))
         print("master: {}".format(AOS.master))
@@ -232,7 +232,6 @@ class AOS(object):
         print("project: {}".format(AOS.osProject))
         print("image prefix: {}".format(AOS.imagePrefix))
         print("image version: {}".format(AOS.imageVersion))
-        print("\n")
      
     @staticmethod
     def get_current_time_str():
@@ -292,13 +291,12 @@ class AOS(object):
 
         AOS.set_ssh_master()
         AOS.ssh_validation()
-        cprint("Done,Good!",'green')
+        cprint("Local configrations are OK. Good!",'green')
         AOS.set_master_server_port()
         AOS.set_masterUrl()
-
         if not AOS.imageVersion:
            AOS.imageVersion = AOS.get_image_tag_version()
-        AOS.echo_user_info()
+        AOS.show_user_info()
 
     @staticmethod
     def get_image_tag_version():
