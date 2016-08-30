@@ -65,7 +65,8 @@ class AOS(object):
     useJournal = ""
     userWriteAccess = ""
     dynamicallyPV = ""
-    haHost = ""
+    lbHost = ""
+    masterPort = "8443"
 
     SSHIntoMaster=""
     ScpFileFromMaster=""
@@ -85,7 +86,7 @@ class AOS(object):
         config.add_section("logging")
         config.add_section("component_shared")
         config.add_section("ssh")
-        config.set('global','ha_host','')
+        config.set('global','lb_host','')
         config.set('global','# The OpenShift user','')
         config.set('global','os_user','')
         config.set('global',"# The OpenShift user's password",'')
@@ -155,7 +156,7 @@ class AOS(object):
     @staticmethod
     def get_config(args):
         config.read(AOS.osConfigFile)
-        AOS.haHost = config.get("global","ha_host")
+        AOS.lbHost = config.get("global","lb_host")
         AOS.osUser = config.get("global","os_user")
         AOS.osPasswd = config.get("global","os_passwd")
         AOS.osUserToken = config.get("global", "os_user_token")
@@ -207,24 +208,26 @@ class AOS(object):
 
     # Get the OpenShift service public port
     @classmethod
-    def get_master_server_port(cls):
+    def set_master_server_port(cls):
         cprint("Getting service port from master server:", "blue")
         masterConfig = os.path.join(AOS.masterConfigRoot, AOS.masterConfigFile)
         outputs = AOS.run_ssh_command("sed -n '/^assetConfig:/,/^corsAllowedOrigins:/p' {}| grep bindAddress:| head -1".format(masterConfig))
-        masterPort = "8443"
         if outputs:
-           masterPort = outputs.split(":")[-1].strip()
+           AOS.masterPort = outputs.split(":")[-1].strip()
         
-        return masterPort
-
     @staticmethod
     def set_masterUrl():
-       AOS.MasterURL = "https://{}:{}".format(AOS.master, AOS.get_master_server_port())
+       if AOS.lbHost:
+          AOS.MasterURL = "https://{}:{}".format(AOS.lbHost, AOS.masterPort)
+       else:
+          AOS.MasterURL = "https://{}:{}".format(AOS.master, AOS.masterPort)
 
     @staticmethod
     def echo_user_info():
         cprint("User info:",'blue')
+        print("LB host: {}".format(AOS.lbHost))
         print("master: {}".format(AOS.master))
+        print("port: {}".format(AOS.masterPort))
         print("user: {}".format(AOS.osUser))
         print("project: {}".format(AOS.osProject))
         print("image prefix: {}".format(AOS.imagePrefix))
@@ -258,11 +261,8 @@ class AOS(object):
 
     @staticmethod
     def set_ssh_master():
-        output = AOS.run_ssh_command("which oadm")
-        if not output:
-           ssh_master = AOS.run_ssh_command("grep 'urls:' -A 3 /etc/origin/master/master-config.yaml | " + "grep -v {}".format(AOS.osProject) +" |grep -v urls | head -1 |awk -F'/' '{print $3}' | awk -F':' '{print $1}'")
-           AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, ssh_master.strip())
-           AOS.ScpFileFromMaster = "scp -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s:" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, ssh_master.strip())
+        AOS.SSHIntoMaster = "ssh -t -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
+        AOS.ScpFileFromMaster = "scp -t -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s:" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
 
     # Check if the configrations are set correctly.
     @classmethod
@@ -290,11 +290,10 @@ class AOS(object):
             cprint('\n'.join(notification_items),'green')
             os.sys.exit()
 
-        AOS.SSHIntoMaster = "ssh -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
-        AOS.ScpFileFromMaster = "scp -i %s -o identitiesonly=yes -o ConnectTimeout=10 %s@%s:" % (os.path.expanduser(AOS.pemFile), AOS.masterUser, AOS.master)
         AOS.set_ssh_master()
         AOS.ssh_validation()
         cprint("Done,Good!",'green')
+        AOS.set_master_server_port()
         AOS.set_masterUrl()
 
         if not AOS.imageVersion:
@@ -316,7 +315,7 @@ class AOS(object):
         remote_command = cmd
 
         if ssh:
-            remote_command = '%s {}'.format(pipes.quote(cmd)) % AOS.SSHIntoMaster
+            remote_command = '%s {}'.format(pipes.quote(AOS.sudo_hack(cmd))) % AOS.SSHIntoMaster
 
         echo_msg = remote_command
         if expectedNum:
@@ -325,7 +324,10 @@ class AOS(object):
 
         try:
             outputs = check_output(remote_command, shell=asShell, stderr=STDOUT)
-            return outputs
+            if "ssh " in remote_command:
+                return outputs.split('\n')[0]
+            else:
+                return outputs
         except (CalledProcessError,OSError), e:
             if e.output and not re.match(".*(which|cannot be updated|no process found|not found|request did not complete|refused|Service Unavailable|Unable to connect).*",  e.output):
                 AOS.echo_command(remote_command)
@@ -337,7 +339,10 @@ class AOS(object):
                 check_output(scpFileCMD, shell=asShell, stderr=STDOUT)
                 localCMD = '{} --config={}'.format(cmd, 'admin.kubeconfig')
                 outputs = check_output(localCMD, shell=asShell, stderr=STDOUT)
-                return outputs
+                if "ssh " in remote_command:
+                   return outputs.split('\n')[0]
+                else:
+                   return outputs
 
     # Add permission for serviceaccount or user
     @classmethod
@@ -349,7 +354,7 @@ class AOS(object):
         pre_cmd = "oc policy"
         if re.match(r".*(cluster|scc-).*",role_type):
             enableSSH = True
-            pre_cmd = "oadm policy"
+            pre_cmd = "/var/usrlocal/bin/oadm policy"
         if "add-" in role_type:
             if "cluster" in role_type:
                 cprint("Note: *%s* user has '%s' admin role! Be Careful!!!" % (user,role_name),'red')
@@ -405,7 +410,8 @@ class AOS(object):
         loginCMD = AOS.get_login_cmd(AOS.MasterURL)
 
         fExist = os.path.exists(os.path.expanduser('~/.kube/config'))
-        if not fExist or not AOS.run_ssh_command("grep {} ~/.kube/config".format(AOS.master), ssh=False):
+        master = AOS.lbHost if AOS.lbHost else AOS.master
+        if not fExist or not AOS.run_ssh_command("grep {} ~/.kube/config".format(master), ssh=False):
             cprint("[ IMPORTANT ] Need login this master once by manual! [ IMPORTANT ]",'red')
             cprint("Please run below login command line:",'red')
             cprint(loginCMD,'green')
@@ -551,8 +557,8 @@ class AOS(object):
     # Deploy metrics stack
     @classmethod
     def start_metrics_stack(cls):
-       # if "openshift" in AOS.osProject:
-        AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
+        if "openshift" in AOS.osProject:
+           AOS.do_permission("add-cluster-role-to-user", "cluster-admin")
         AOS.login_server()
         AOS.update_metric_deployer_template()
 
@@ -570,13 +576,12 @@ class AOS(object):
                                      'IMAGE_VERSION':AOS.imageVersion,\
                                      'USE_PERSISTENT_STORAGE':AOS.enablePV,\
                                      'MASTER_URL':AOS.MasterURL,\
-                                     'DYNAMICALLY_PROVISION_STORAGE':AOS.dynamicallyPV,\
                                      'CASSANDRA_NODES': AOS.cassandraNodes,\
                                      'CASSANDRA_PV_SIZE':AOS.PVCSize})
         if AOS.imageVersion >= "3.2.0" and AOS.imageVersion < "3.3.0":
            paraList.extend(AOS.make_para_list({'MODE':AOS.deployMode}))
         elif AOS.imageVersion >= "3.3.0":
-           paraList.extend(AOS.make_para_list({'MODE':AOS.deployMode,'USER_WRITE_ACCESS':AOS.userWriteAccess}))
+           paraList.extend(AOS.make_para_list({'MODE':AOS.deployMode,'USER_WRITE_ACCESS':AOS.userWriteAccess,'DYNAMICALLY_PROVISION_STORAGE':AOS.dynamicallyPV}))
 
         AOS.run_ssh_command("oc new-app metrics-deployer-template -p {}".format(','.join(paraList)), ssh=False)
         if "registry.qe" in AOS.imagePrefix:
@@ -586,8 +591,8 @@ class AOS(object):
            AOS.resource_validate("oc logs {} -n {}".format(deployerPodName, AOS.osProject),r".*VALIDATING THE DEPLOYMENT.*",dstNum=1)
            AOS.add_pull_secret_for_registryqe_repo(["heapster","hawkular","cassandra"])
         AOS.resource_validate("oc get pods -n %s" % AOS.osProject,r".*[heapster|hawkular].*1/1.*Running.*")
-       # if "openshift" in AOS.osProject:
-        AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
+        if "openshift" in AOS.osProject:
+           AOS.do_permission("remove-cluster-role-from-user", "cluster-admin")
         cprint("Success!","green")
 
     @classmethod
@@ -793,17 +798,18 @@ class AOS(object):
         kubeConfig = os.path.join(AOS.masterConfigRoot, AOS.kubeConfigFile)
         master = AOS.master.replace('.','-')
 
-        killRs = AOS.run_ssh_command("%s openshift; echo $?" % AOS.sudo_hack("killall"))
+        killRs = AOS.run_ssh_command("%s openshift; echo $?" % "killall")
+        #killRs = AOS.run_ssh_command("%s openshift; echo $?" % AOS.sudo_hack("killall"))
         if not "0" in killRs:
-           AOS.run_ssh_command("%s start --public-master=%s:8443 --write-config=/etc/origin" % (AOS.sudo_hack(openshift), AOS.master))
-           AOS.run_ssh_command("echo export KUBECONFIG={kube} >> ~/.bashrc; {chd} o+rx {kube}".format(chd=AOS.sudo_hack("chmod"),kube=kubeConfig))
+           AOS.run_ssh_command("%s start --public-master=%s:8443 --write-config=/etc/origin" % (openshift, AOS.master))
+           AOS.run_ssh_command("echo export KUBECONFIG={kube} >> ~/.bashrc; {chd} o+rx {kube}".format(chd="chmod",kube=kubeConfig))
 
-        AOS.run_ssh_command("nohup {os} start --node-config={node} --master-config={master} &> openshift.log &".format(os=AOS.sudo_hack(openshift),node=nodeConfig,master=masterConfig))
+        AOS.run_ssh_command("nohup {os} start --node-config={node} --master-config={master} &> openshift.log &".format(os=openshift,node=nodeConfig,master=masterConfig))
         if not "0" in killRs:
            AOS.resource_validate("oc get projects", r"Active", enableSsh=True)
            # For automation cases related admin role
            AOS.run_ssh_command("oc config use-context default/%s:8443/system:admin && %s -p /root/.kube && %s /etc/origin/master/admin.kubeconfig /root/.kube/config"\
-                            % (master,AOS.sudo_hack('mkdir'),AOS.sudo_hack('cp')))
+                            % (master,'mkdir','cp'))
 
     # Start OpenShift origin service
     @classmethod
@@ -874,11 +880,11 @@ class AOS(object):
             AOS.delete_resource(resource)
         # Add permission for creating router
         AOS.run_ssh_command("oadm policy add-scc-to-user privileged system:serviceaccount:default:default")
-        chmod = AOS.sudo_hack('chmod')
+        #chmod = AOS.sudo_hack('chmod')
         cprint("Creating registry and router pods",'blue')
         preCmd = 'export CURL_CA_BUNDLE=/etc/origin/master/ca.crt; \
                   {chd} a+rwX /etc/origin/master/admin.kubeconfig; \
-                  {chd} +r /etc/origin/master/openshift-registry.kubeconfig;'.format(chd=chmod)
+                  {chd} +r /etc/origin/master/openshift-registry.kubeconfig;'.format(chd="chmod")
         AOS.run_ssh_command(preCmd)
        #          oc create serviceaccount registry -n default; \
        #           oc create serviceaccount router -n default; \
