@@ -543,8 +543,6 @@ class AOS(object):
         for sname in master_server_name:
             sname = sname.replace("\x0d","")
             AOS.run_ssh_command("systemctl restart {}".format(sname))
-        else:
-           cprint("Failed to restart master server due to not found master service",'red')
 
     # Enable logging/metrics on OpenShift console
     @classmethod
@@ -554,7 +552,6 @@ class AOS(object):
            AOS.restart_origin_server()
         else:
            AOS.restart_ose_server()
-        cprint("Success!","green")
 
     @staticmethod
     def make_para_list(paraMap):

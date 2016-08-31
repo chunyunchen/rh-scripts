@@ -1,0 +1,442 @@
++ set -o pipefail
++ [[ 0 -ne 1 ]]
++ CLUSTER=false
++ ops=
++ ARTIFACT_DIR=/tmp/origin-aggregated-logging
++ '[' '!' -d /tmp/origin-aggregated-logging ']'
++ TEST_DIVIDER=------------------------------------------
+++ oc get -n test --output-version=v1beta3 '--template={{ .spec.portalIP }}' service frontend
++ testip=172.30.201.213
++ testport=5432
+++ get_running_pod fluentd
+++ lblname=
+++ '[' -z '' ']'
+++ lblname=component
+++ oc get pods -l component=fluentd
+++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
++ fpod=logging-fluentd-a3g14
+++ mktemp
++ cfg=/tmp/tmp.V1WsKsbCRE
++ oc get template logging-fluentd-template -o yaml
++ sed '/- name: ES_COPY/,/value:/ s/value: .*$/value: "false"/'
++ oc replace -f -
+template "logging-fluentd-template" replaced
++ restart_fluentd
++ oc delete daemonset logging-fluentd
+daemonset "logging-fluentd" deleted
++ wait_for_pod_ACTION stop logging-fluentd-a3g14
++ ii=120
++ incr=10
++ '[' stop = start ']'
++ curpod=logging-fluentd-a3g14
++ '[' 120 -gt 0 ']'
++ '[' stop = stop ']'
++ oc describe pod/logging-fluentd-a3g14
++ '[' stop = start ']'
++ break
++ '[' 120 -le 0 ']'
++ return 0
++ oc process logging-fluentd-template
++ oc create -f -
+daemonset "logging-fluentd" created
++ wait_for_pod_ACTION start fluentd
++ ii=120
++ incr=10
++ '[' start = start ']'
+++ get_running_pod fluentd
+++ lblname=
+++ '[' -z '' ']'
+++ lblname=component
+++ oc get pods -l component=fluentd
+++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
++ curpod=logging-fluentd-a34wn
++ '[' 120 -gt 0 ']'
++ '[' start = stop ']'
++ '[' start = start ']'
++ '[' -z logging-fluentd-a34wn ']'
++ break
++ '[' 120 -le 0 ']'
++ return 0
+++ get_running_pod fluentd
+++ lblname=
+++ '[' -z '' ']'
+++ lblname=component
+++ oc get pods -l component=fluentd
+++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
++ fpod=logging-fluentd-a34wn
+++ mktemp
++ origconfig=/tmp/tmp.GKUKv2wvNu
++ oc get template logging-fluentd-template -o yaml
++ write_and_verify_logs 1
++ expected=1
+++ get_running_pod frontend name '-n test'
+++ lblname=name
+++ head -1
+++ '[' -z name ']'
+++ oc get pods -l name=frontend -n test
+++ awk -v sel=frontend '$1 ~ sel && $3 == "Running" {print $1}'
++ fpod=frontend-1-1dbn9
++ '[' -z frontend-1-1dbn9 ']'
+++ uuidgen
++ logmessage=ff77463c-cc7f-4b77-bc14-36edec65e00e
++ oc exec -n test frontend-1-1dbn9 -- curl --connect-timeout 1 -s http://172.30.201.213:5432/ff77463c-cc7f-4b77-bc14-36edec65e00e
+++ uuidgen
++ logmessage2=73f4321a-8a41-4a79-8d72-5b7e94d269bf
+++ oc get node -l registry=enabled --no-headers
+++ awk '{print $1}'
++ schedulablenode=host-8-172-111.host.centralci.eng.rdu2.redhat.com
++ for node in '$schedulablenode'
++ ssh -i /home/chunchen/cfile/libra-new.pem -o identitiesonly=yes root@host-8-172-111.host.centralci.eng.rdu2.redhat.com 'logger -i -p local6.info -t 73f4321a-8a41-4a79-8d72-5b7e94d269bf 73f4321a-8a41-4a79-8d72-5b7e94d269bf'
+++ get_running_pod kibana
+++ lblname=
+++ '[' -z '' ']'
+++ lblname=component
+++ oc get pods -l component=kibana
+++ awk -v sel=kibana '$1 ~ sel && $3 == "Running" {print $1}'
++ kpod=logging-kibana-1-23zcb
++ '[' -z logging-kibana-1-23zcb ']'
++ rc=0
++ myhost=logging-es
++ myproject=test
++ mymessage=ff77463c-cc7f-4b77-bc14-36edec65e00e
++ expected=1
++ wait_until_cmd_or_err test_count_expected test_count_err 20
++ let ii=20
++ interval=1
++ '[' 20 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-23zcb logging-es test _count message ff77463c-cc7f-4b77-bc14-36edec65e00e
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-23zcb -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:ff77463c-cc7f-4b77-bc14-36edec65e00e'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-23zcb' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 1
++ break
++ '[' 20 -le 0 ']'
++ return 0
++ '[' -n 1 ']'
++ echo good - found 1 records project test for ff77463c-cc7f-4b77-bc14-36edec65e00e
+good - found 1 records project test for ff77463c-cc7f-4b77-bc14-36edec65e00e
++ myhost=logging-es
++ myproject=.operations
++ mymessage=73f4321a-8a41-4a79-8d72-5b7e94d269bf
++ expected=1
++ myfield=ident
++ wait_until_cmd_or_err test_count_expected test_count_err 20
++ let ii=20
++ interval=1
++ '[' 20 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-23zcb logging-es .operations _count ident 73f4321a-8a41-4a79-8d72-5b7e94d269bf
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-23zcb' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 1
++ break
++ '[' 20 -le 0 ']'
++ return 0
++ '[' -n 1 ']'
++ echo good - found 1 records project .operations for 73f4321a-8a41-4a79-8d72-5b7e94d269bf
+good - found 1 records project .operations for 73f4321a-8a41-4a79-8d72-5b7e94d269bf
++ return 0
++ trap cleanup INT TERM EXIT
+++ mktemp
++ nocopy=/tmp/tmp.jEb523ABAx
++ sed /_COPY/,/value/d /tmp/tmp.GKUKv2wvNu
+++ mktemp
++ envpatch=/tmp/tmp.dT7c6Q42RU
++ sed -n '/^        - env:/,/^          image:/ {
+/^          image:/d
+/^        - env:/d
+/name: K8S_HOST_URL/,/value/d
+s/ES_/ES_COPY_/
+s/OPS_/OPS_COPY_/
+p
+}' /tmp/tmp.jEb523ABAx
++ cat
++ cat /tmp/tmp.jEb523ABAx
++ sed '/^        - env:/r /tmp/tmp.dT7c6Q42RU'
++ oc replace -f -
+template "logging-fluentd-template" replaced
++ rm -f /tmp/tmp.dT7c6Q42RU /tmp/tmp.jEb523ABAx
++ restart_fluentd
++ oc delete daemonset logging-fluentd
+daemonset "logging-fluentd" deleted
++ wait_for_pod_ACTION stop frontend-1-1dbn9
++ ii=120
++ incr=10
++ '[' stop = start ']'
++ curpod=frontend-1-1dbn9
++ '[' 120 -gt 0 ']'
++ '[' stop = stop ']'
++ oc describe pod/frontend-1-1dbn9
++ '[' stop = start ']'
++ break
++ '[' 120 -le 0 ']'
++ return 0
++ oc process logging-fluentd-template
++ oc create -f -
+daemonset "logging-fluentd" created
++ wait_for_pod_ACTION start fluentd
++ ii=120
++ incr=10
++ '[' start = start ']'
+++ get_running_pod fluentd
+++ lblname=
+++ '[' -z '' ']'
+++ lblname=component
+++ oc get pods -l component=fluentd
+++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
++ curpod=
++ '[' 120 -gt 0 ']'
++ '[' start = stop ']'
++ '[' start = start ']'
++ '[' -z '' ']'
++ '[' -n 1 ']'
++ echo pod for component=fluentd not running yet
+pod for component=fluentd not running yet
++ sleep 10
+++ expr 120 - 10
++ ii=110
++ '[' start = start ']'
+++ get_running_pod fluentd
+++ lblname=
+++ '[' -z '' ']'
+++ lblname=component
+++ oc get pods -l component=fluentd
+++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
++ curpod=logging-fluentd-o71sk
++ '[' 110 -gt 0 ']'
++ '[' start = stop ']'
++ '[' start = start ']'
++ '[' -z logging-fluentd-o71sk ']'
++ break
++ '[' 110 -le 0 ']'
++ return 0
+++ get_running_pod fluentd
+++ lblname=
+++ '[' -z '' ']'
+++ lblname=component
+++ oc get pods -l component=fluentd
+++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
++ fpod=logging-fluentd-o71sk
++ write_and_verify_logs 2
++ expected=2
+++ get_running_pod frontend name '-n test'
+++ head -1
+++ lblname=name
+++ '[' -z name ']'
+++ oc get pods -l name=frontend -n test
+++ awk -v sel=frontend '$1 ~ sel && $3 == "Running" {print $1}'
++ fpod=frontend-1-1dbn9
++ '[' -z frontend-1-1dbn9 ']'
+++ uuidgen
++ logmessage=61f616f7-df99-4e36-8ffd-357eaaf84d54
++ oc exec -n test frontend-1-1dbn9 -- curl --connect-timeout 1 -s http://172.30.201.213:5432/61f616f7-df99-4e36-8ffd-357eaaf84d54
+++ uuidgen
++ logmessage2=ce60e9a2-b0dd-4a1d-b615-e5cf07189ef9
+++ oc get node -l registry=enabled --no-headers
+++ awk '{print $1}'
++ schedulablenode=host-8-172-111.host.centralci.eng.rdu2.redhat.com
++ for node in '$schedulablenode'
++ ssh -i /home/chunchen/cfile/libra-new.pem -o identitiesonly=yes root@host-8-172-111.host.centralci.eng.rdu2.redhat.com 'logger -i -p local6.info -t ce60e9a2-b0dd-4a1d-b615-e5cf07189ef9 ce60e9a2-b0dd-4a1d-b615-e5cf07189ef9'
+++ get_running_pod kibana
+++ lblname=
+++ '[' -z '' ']'
+++ lblname=component
+++ oc get pods -l component=kibana
+++ awk -v sel=kibana '$1 ~ sel && $3 == "Running" {print $1}'
++ kpod=logging-kibana-1-23zcb
++ '[' -z logging-kibana-1-23zcb ']'
++ rc=0
++ myhost=logging-es
++ myproject=test
++ mymessage=61f616f7-df99-4e36-8ffd-357eaaf84d54
++ expected=2
++ wait_until_cmd_or_err test_count_expected test_count_err 20
++ let ii=20
++ interval=1
++ '[' 20 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-23zcb logging-es test _count message 61f616f7-df99-4e36-8ffd-357eaaf84d54
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-23zcb -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:61f616f7-df99-4e36-8ffd-357eaaf84d54'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-23zcb' cmd to see all containers in this pod+ nrecs=2
++ test 2 = 2
++ break
++ '[' 20 -le 0 ']'
++ return 0
++ '[' -n 1 ']'
++ echo good - found 2 records project test for 61f616f7-df99-4e36-8ffd-357eaaf84d54
+good - found 2 records project test for 61f616f7-df99-4e36-8ffd-357eaaf84d54
++ myhost=logging-es
++ myproject=.operations
++ mymessage=ce60e9a2-b0dd-4a1d-b615-e5cf07189ef9
++ expected=2
++ myfield=ident
++ wait_until_cmd_or_err test_count_expected test_count_err 20
++ let ii=20
++ interval=1
++ '[' 20 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-23zcb logging-es .operations _count ident ce60e9a2-b0dd-4a1d-b615-e5cf07189ef9
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-23zcb -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/.operations*/_count?q=ident:ce60e9a2-b0dd-4a1d-b615-e5cf07189ef9'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-23zcb' cmd to see all containers in this pod+ nrecs=2
++ test 2 = 2
++ break
++ '[' 20 -le 0 ']'
++ return 0
++ '[' -n 1 ']'
++ echo good - found 2 records project .operations for ce60e9a2-b0dd-4a1d-b615-e5cf07189ef9
+good - found 2 records project .operations for ce60e9a2-b0dd-4a1d-b615-e5cf07189ef9
++ return 0
++ oc replace --force -f /tmp/tmp.GKUKv2wvNu
+template "logging-fluentd-template" deleted
+template "logging-fluentd-template" replaced
++ rm -f /tmp/tmp.GKUKv2wvNu
++ restart_fluentd
++ oc delete daemonset logging-fluentd
+daemonset "logging-fluentd" deleted
++ wait_for_pod_ACTION stop frontend-1-1dbn9
++ ii=120
++ incr=10
++ '[' stop = start ']'
++ curpod=frontend-1-1dbn9
++ '[' 120 -gt 0 ']'
++ '[' stop = stop ']'
++ oc describe pod/frontend-1-1dbn9
++ '[' stop = start ']'
++ break
++ '[' 120 -le 0 ']'
++ return 0
++ oc process logging-fluentd-template
++ oc create -f -
+daemonset "logging-fluentd" created
++ wait_for_pod_ACTION start fluentd
++ ii=120
++ incr=10
++ '[' start = start ']'
+++ get_running_pod fluentd
+++ lblname=
+++ '[' -z '' ']'
+++ lblname=component
+++ oc get pods -l component=fluentd
+++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
++ curpod=
++ '[' 120 -gt 0 ']'
++ '[' start = stop ']'
++ '[' start = start ']'
++ '[' -z '' ']'
++ '[' -n 1 ']'
++ echo pod for component=fluentd not running yet
+pod for component=fluentd not running yet
++ sleep 10
+++ expr 120 - 10
++ ii=110
++ '[' start = start ']'
+++ get_running_pod fluentd
+++ lblname=
+++ '[' -z '' ']'
+++ lblname=component
+++ oc get pods -l component=fluentd
+++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
++ curpod=logging-fluentd-4emcz
++ '[' 110 -gt 0 ']'
++ '[' start = stop ']'
++ '[' start = start ']'
++ '[' -z logging-fluentd-4emcz ']'
++ break
++ '[' 110 -le 0 ']'
++ return 0
+++ get_running_pod fluentd
+++ lblname=
+++ '[' -z '' ']'
+++ lblname=component
+++ oc get pods -l component=fluentd
+++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
++ fpod=logging-fluentd-4emcz
++ write_and_verify_logs 1
++ expected=1
+++ get_running_pod frontend name '-n test'
+++ head -1
+++ lblname=name
+++ '[' -z name ']'
+++ oc get pods -l name=frontend -n test
+++ awk -v sel=frontend '$1 ~ sel && $3 == "Running" {print $1}'
++ fpod=frontend-1-1dbn9
++ '[' -z frontend-1-1dbn9 ']'
+++ uuidgen
++ logmessage=7150b7ab-66ae-44df-81ae-1fa6e1809183
++ oc exec -n test frontend-1-1dbn9 -- curl --connect-timeout 1 -s http://172.30.201.213:5432/7150b7ab-66ae-44df-81ae-1fa6e1809183
+++ uuidgen
++ logmessage2=7b1c9762-d8ef-406a-a0d2-604bec02a437
+++ oc get node -l registry=enabled --no-headers
+++ awk '{print $1}'
++ schedulablenode=host-8-172-111.host.centralci.eng.rdu2.redhat.com
++ for node in '$schedulablenode'
++ ssh -i /home/chunchen/cfile/libra-new.pem -o identitiesonly=yes root@host-8-172-111.host.centralci.eng.rdu2.redhat.com 'logger -i -p local6.info -t 7b1c9762-d8ef-406a-a0d2-604bec02a437 7b1c9762-d8ef-406a-a0d2-604bec02a437'
+++ get_running_pod kibana
+++ lblname=
+++ '[' -z '' ']'
+++ lblname=component
+++ oc get pods -l component=kibana
+++ awk -v sel=kibana '$1 ~ sel && $3 == "Running" {print $1}'
++ kpod=logging-kibana-1-23zcb
++ '[' -z logging-kibana-1-23zcb ']'
++ rc=0
++ myhost=logging-es
++ myproject=test
++ mymessage=7150b7ab-66ae-44df-81ae-1fa6e1809183
++ expected=1
++ wait_until_cmd_or_err test_count_expected test_count_err 20
++ let ii=20
++ interval=1
++ '[' 20 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-23zcb logging-es test _count message 7150b7ab-66ae-44df-81ae-1fa6e1809183
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-23zcb -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:7150b7ab-66ae-44df-81ae-1fa6e1809183'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-23zcb' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 1
++ break
++ '[' 20 -le 0 ']'
++ return 0
++ '[' -n 1 ']'
++ echo good - found 1 records project test for 7150b7ab-66ae-44df-81ae-1fa6e1809183
+good - found 1 records project test for 7150b7ab-66ae-44df-81ae-1fa6e1809183
++ myhost=logging-es
++ myproject=.operations
++ mymessage=7b1c9762-d8ef-406a-a0d2-604bec02a437
++ expected=1
++ myfield=ident
++ wait_until_cmd_or_err test_count_expected test_count_err 20
++ let ii=20
++ interval=1
++ '[' 20 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-23zcb logging-es .operations _count ident 7b1c9762-d8ef-406a-a0d2-604bec02a437
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-23zcb -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/.operations*/_count?q=ident:7b1c9762-d8ef-406a-a0d2-604bec02a437'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-23zcb' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 1
++ break
++ '[' 20 -le 0 ']'
++ return 0
++ '[' -n 1 ']'
++ echo good - found 1 records project .operations for 7b1c9762-d8ef-406a-a0d2-604bec02a437
+good - found 1 records project .operations for 7b1c9762-d8ef-406a-a0d2-604bec02a437
++ return 0
++ cleanup
++ '[' '!' -f /tmp/tmp.GKUKv2wvNu ']'
++ return 0
