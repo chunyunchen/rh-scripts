@@ -155,11 +155,13 @@ write_and_verify_logs() {
 
     # write a message to the system log
     logmessage2=`uuidgen`
-    schedulablenode=`oc get node -l registry=enabled --no-headers | awk '{print $1}'`
-    for node in $schedulablenode
-    do
-       ssh -i ~/cfile/libra-new.pem -o identitiesonly=yes root@$node "logger -i -p local6.info -t $logmessage2 $logmessage2"
-    done
+#    schedulablenode=`oc get node -l registry=enabled --no-headers | awk '{print $1}'`
+    chedulablenode="c2-52-23-217-146.compute-1.amazonaws.com"
+   # for node in "$schedulablenode"
+    #do
+    #   ssh -i ~/cfile/libra-new.pem -o identitiesonly=yes root@$node "logger -i -p local6.info -t $logmessage2 $logmessage2"
+   # done
+    ssh -i ~/cfile/libra-new.pem -o identitiesonly=yes root@$chedulablenode "logger -i -p local6.info -t $logmessage2 $logmessage2"
     #logger -i -p local6.info -t $logmessage2 $logmessage2
 
     # get current kibana pod
