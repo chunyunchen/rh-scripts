@@ -17,6 +17,7 @@ else
   CLUSTER="$1"
   ops="-ops"
 fi
+echo "ops=$ops"
 
 ARTIFACT_DIR=${ARTIFACT_DIR:-${TMPDIR:-/tmp}/origin-aggregated-logging}
 if [ ! -d $ARTIFACT_DIR ] ; then
@@ -156,7 +157,7 @@ write_and_verify_logs() {
     # write a message to the system log
     logmessage2=`uuidgen`
 #    schedulablenode=`oc get node -l registry=enabled --no-headers | awk '{print $1}'`
-    chedulablenode="c2-52-23-217-146.compute-1.amazonaws.com"
+    chedulablenode="ec2-54-159-243-102.compute-1.amazonaws.com"
    # for node in "$schedulablenode"
     #do
     #   ssh -i ~/cfile/libra-new.pem -o identitiesonly=yes root@$node "logger -i -p local6.info -t $logmessage2 $logmessage2"

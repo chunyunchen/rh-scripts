@@ -1,12 +1,15 @@
 + set -o pipefail
-+ [[ 0 -ne 1 ]]
-+ CLUSTER=false
-+ ops=
++ [[ 1 -ne 1 ]]
++ [[ true = \f\a\l\s\e ]]
++ CLUSTER=true
++ ops=-ops
++ echo ops=-ops
+ops=-ops
 + ARTIFACT_DIR=/tmp/origin-aggregated-logging
 + '[' '!' -d /tmp/origin-aggregated-logging ']'
 + TEST_DIVIDER=------------------------------------------
 ++ oc get -n test --output-version=v1beta3 '--template={{ .spec.portalIP }}' service frontend
-+ testip=172.30.201.213
++ testip=172.31.22.26
 + testport=5432
 ++ get_running_pod fluentd
 ++ lblname=
@@ -14,9 +17,10 @@
 ++ lblname=component
 ++ oc get pods -l component=fluentd
 ++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
-+ fpod=logging-fluentd-a3g14
++ fpod='logging-fluentd-gdbg1
+logging-fluentd-x8uog'
 ++ mktemp
-+ cfg=/tmp/tmp.V1WsKsbCRE
++ cfg=/tmp/tmp.jCNKmQHSrW
 + oc get template logging-fluentd-template -o yaml
 + sed '/- name: ES_COPY/,/value:/ s/value: .*$/value: "false"/'
 + oc replace -f -
@@ -24,14 +28,14 @@ template "logging-fluentd-template" replaced
 + restart_fluentd
 + oc delete daemonset logging-fluentd
 daemonset "logging-fluentd" deleted
-+ wait_for_pod_ACTION stop logging-fluentd-a3g14
++ wait_for_pod_ACTION stop logging-fluentd-gdbg1 logging-fluentd-x8uog
 + ii=120
 + incr=10
 + '[' stop = start ']'
-+ curpod=logging-fluentd-a3g14
++ curpod=logging-fluentd-gdbg1
 + '[' 120 -gt 0 ']'
 + '[' stop = stop ']'
-+ oc describe pod/logging-fluentd-a3g14
++ oc describe pod/logging-fluentd-gdbg1
 + '[' stop = start ']'
 + break
 + '[' 120 -le 0 ']'
@@ -49,11 +53,11 @@ daemonset "logging-fluentd" created
 ++ lblname=component
 ++ oc get pods -l component=fluentd
 ++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
-+ curpod=logging-fluentd-a34wn
++ curpod=logging-fluentd-wz3f4
 + '[' 120 -gt 0 ']'
 + '[' start = stop ']'
 + '[' start = start ']'
-+ '[' -z logging-fluentd-a34wn ']'
++ '[' -z logging-fluentd-wz3f4 ']'
 + break
 + '[' 120 -le 0 ']'
 + return 0
@@ -63,42 +67,39 @@ daemonset "logging-fluentd" created
 ++ lblname=component
 ++ oc get pods -l component=fluentd
 ++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
-+ fpod=logging-fluentd-a34wn
++ fpod='logging-fluentd-fj1zk
+logging-fluentd-wz3f4'
 ++ mktemp
-+ origconfig=/tmp/tmp.GKUKv2wvNu
++ origconfig=/tmp/tmp.Zh6WICmTiJ
 + oc get template logging-fluentd-template -o yaml
 + write_and_verify_logs 1
 + expected=1
 ++ get_running_pod frontend name '-n test'
-++ lblname=name
 ++ head -1
 ++ '[' -z name ']'
 ++ oc get pods -l name=frontend -n test
 ++ awk -v sel=frontend '$1 ~ sel && $3 == "Running" {print $1}'
-+ fpod=frontend-1-1dbn9
-+ '[' -z frontend-1-1dbn9 ']'
++ fpod=frontend-1-gf3ps
++ '[' -z frontend-1-gf3ps ']'
 ++ uuidgen
-+ logmessage=ff77463c-cc7f-4b77-bc14-36edec65e00e
-+ oc exec -n test frontend-1-1dbn9 -- curl --connect-timeout 1 -s http://172.30.201.213:5432/ff77463c-cc7f-4b77-bc14-36edec65e00e
++ logmessage=48d52f0c-01fb-419f-aa1a-6c70531996ba
++ oc exec -n test frontend-1-gf3ps -- curl --connect-timeout 1 -s http://172.31.22.26:5432/48d52f0c-01fb-419f-aa1a-6c70531996ba
 ++ uuidgen
-+ logmessage2=73f4321a-8a41-4a79-8d72-5b7e94d269bf
-++ oc get node -l registry=enabled --no-headers
-++ awk '{print $1}'
-+ schedulablenode=host-8-172-111.host.centralci.eng.rdu2.redhat.com
-+ for node in '$schedulablenode'
-+ ssh -i /home/chunchen/cfile/libra-new.pem -o identitiesonly=yes root@host-8-172-111.host.centralci.eng.rdu2.redhat.com 'logger -i -p local6.info -t 73f4321a-8a41-4a79-8d72-5b7e94d269bf 73f4321a-8a41-4a79-8d72-5b7e94d269bf'
++ logmessage2=3158ac04-d8e9-41f1-b521-627eb2f9ffcd
++ chedulablenode=ec2-54-159-243-102.compute-1.amazonaws.com
++ ssh -i /home/chunchen/cfile/libra-new.pem -o identitiesonly=yes root@ec2-54-159-243-102.compute-1.amazonaws.com 'logger -i -p local6.info -t 3158ac04-d8e9-41f1-b521-627eb2f9ffcd 3158ac04-d8e9-41f1-b521-627eb2f9ffcd'
 ++ get_running_pod kibana
 ++ lblname=
 ++ '[' -z '' ']'
 ++ lblname=component
 ++ oc get pods -l component=kibana
 ++ awk -v sel=kibana '$1 ~ sel && $3 == "Running" {print $1}'
-+ kpod=logging-kibana-1-23zcb
-+ '[' -z logging-kibana-1-23zcb ']'
++ kpod=logging-kibana-1-i9rct
++ '[' -z logging-kibana-1-i9rct ']'
 + rc=0
 + myhost=logging-es
 + myproject=test
-+ mymessage=ff77463c-cc7f-4b77-bc14-36edec65e00e
++ mymessage=48d52f0c-01fb-419f-aa1a-6c70531996ba
 + expected=1
 + wait_until_cmd_or_err test_count_expected test_count_err 20
 + let ii=20
@@ -106,21 +107,21 @@ daemonset "logging-fluentd" created
 + '[' 20 -gt 0 ']'
 + test_count_expected
 + myfield=message
-++ curl_es_from_kibana logging-kibana-1-23zcb logging-es test _count message ff77463c-cc7f-4b77-bc14-36edec65e00e
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 48d52f0c-01fb-419f-aa1a-6c70531996ba
 ++ get_count_from_json
 ++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
-++ oc exec logging-kibana-1-23zcb -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:ff77463c-cc7f-4b77-bc14-36edec65e00e'
-defaulting container name to kibana, use 'oc describe po/logging-kibana-1-23zcb' cmd to see all containers in this pod+ nrecs=1
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:48d52f0c-01fb-419f-aa1a-6c70531996ba'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
 + test 1 = 1
 + break
 + '[' 20 -le 0 ']'
 + return 0
 + '[' -n 1 ']'
-+ echo good - found 1 records project test for ff77463c-cc7f-4b77-bc14-36edec65e00e
-good - found 1 records project test for ff77463c-cc7f-4b77-bc14-36edec65e00e
-+ myhost=logging-es
++ echo good - found 1 records project test for 48d52f0c-01fb-419f-aa1a-6c70531996ba
+good - found 1 records project test for 48d52f0c-01fb-419f-aa1a-6c70531996ba
++ myhost=logging-es-ops
 + myproject=.operations
-+ mymessage=73f4321a-8a41-4a79-8d72-5b7e94d269bf
++ mymessage=3158ac04-d8e9-41f1-b521-627eb2f9ffcd
 + expected=1
 + myfield=ident
 + wait_until_cmd_or_err test_count_expected test_count_err 20
@@ -129,24 +130,25 @@ good - found 1 records project test for ff77463c-cc7f-4b77-bc14-36edec65e00e
 + '[' 20 -gt 0 ']'
 + test_count_expected
 + myfield=ident
-++ curl_es_from_kibana logging-kibana-1-23zcb logging-es .operations _count ident 73f4321a-8a41-4a79-8d72-5b7e94d269bf
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident 3158ac04-d8e9-41f1-b521-627eb2f9ffcd
 ++ get_count_from_json
 ++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
-defaulting container name to kibana, use 'oc describe po/logging-kibana-1-23zcb' cmd to see all containers in this pod+ nrecs=1
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:3158ac04-d8e9-41f1-b521-627eb2f9ffcd'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
 + test 1 = 1
 + break
 + '[' 20 -le 0 ']'
 + return 0
 + '[' -n 1 ']'
-+ echo good - found 1 records project .operations for 73f4321a-8a41-4a79-8d72-5b7e94d269bf
-good - found 1 records project .operations for 73f4321a-8a41-4a79-8d72-5b7e94d269bf
++ echo good - found 1 records project .operations for 3158ac04-d8e9-41f1-b521-627eb2f9ffcd
+good - found 1 records project .operations for 3158ac04-d8e9-41f1-b521-627eb2f9ffcd
 + return 0
 + trap cleanup INT TERM EXIT
 ++ mktemp
-+ nocopy=/tmp/tmp.jEb523ABAx
-+ sed /_COPY/,/value/d /tmp/tmp.GKUKv2wvNu
++ nocopy=/tmp/tmp.xIqXSPSJxq
++ sed /_COPY/,/value/d /tmp/tmp.Zh6WICmTiJ
 ++ mktemp
-+ envpatch=/tmp/tmp.dT7c6Q42RU
++ envpatch=/tmp/tmp.WW13YS3Rtu
 + sed -n '/^        - env:/,/^          image:/ {
 /^          image:/d
 /^        - env:/d
@@ -154,24 +156,24 @@ good - found 1 records project .operations for 73f4321a-8a41-4a79-8d72-5b7e94d26
 s/ES_/ES_COPY_/
 s/OPS_/OPS_COPY_/
 p
-}' /tmp/tmp.jEb523ABAx
+}' /tmp/tmp.xIqXSPSJxq
 + cat
-+ cat /tmp/tmp.jEb523ABAx
-+ sed '/^        - env:/r /tmp/tmp.dT7c6Q42RU'
++ cat /tmp/tmp.xIqXSPSJxq
++ sed '/^        - env:/r /tmp/tmp.WW13YS3Rtu'
 + oc replace -f -
 template "logging-fluentd-template" replaced
-+ rm -f /tmp/tmp.dT7c6Q42RU /tmp/tmp.jEb523ABAx
++ rm -f /tmp/tmp.WW13YS3Rtu /tmp/tmp.xIqXSPSJxq
 + restart_fluentd
 + oc delete daemonset logging-fluentd
 daemonset "logging-fluentd" deleted
-+ wait_for_pod_ACTION stop frontend-1-1dbn9
++ wait_for_pod_ACTION stop frontend-1-gf3ps
 + ii=120
 + incr=10
 + '[' stop = start ']'
-+ curpod=frontend-1-1dbn9
++ curpod=frontend-1-gf3ps
 + '[' 120 -gt 0 ']'
 + '[' stop = stop ']'
-+ oc describe pod/frontend-1-1dbn9
++ oc describe pod/frontend-1-gf3ps
 + '[' stop = start ']'
 + break
 + '[' 120 -le 0 ']'
@@ -189,31 +191,13 @@ daemonset "logging-fluentd" created
 ++ lblname=component
 ++ oc get pods -l component=fluentd
 ++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
-+ curpod=
++ curpod=logging-fluentd-jqwfu
 + '[' 120 -gt 0 ']'
 + '[' start = stop ']'
 + '[' start = start ']'
-+ '[' -z '' ']'
-+ '[' -n 1 ']'
-+ echo pod for component=fluentd not running yet
-pod for component=fluentd not running yet
-+ sleep 10
-++ expr 120 - 10
-+ ii=110
-+ '[' start = start ']'
-++ get_running_pod fluentd
-++ lblname=
-++ '[' -z '' ']'
-++ lblname=component
-++ oc get pods -l component=fluentd
-++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
-+ curpod=logging-fluentd-o71sk
-+ '[' 110 -gt 0 ']'
-+ '[' start = stop ']'
-+ '[' start = start ']'
-+ '[' -z logging-fluentd-o71sk ']'
++ '[' -z logging-fluentd-jqwfu ']'
 + break
-+ '[' 110 -le 0 ']'
++ '[' 120 -le 0 ']'
 + return 0
 ++ get_running_pod fluentd
 ++ lblname=
@@ -221,39 +205,36 @@ pod for component=fluentd not running yet
 ++ lblname=component
 ++ oc get pods -l component=fluentd
 ++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
-+ fpod=logging-fluentd-o71sk
++ fpod='logging-fluentd-jqwfu
+logging-fluentd-usuqq'
 + write_and_verify_logs 2
 + expected=2
 ++ get_running_pod frontend name '-n test'
-++ head -1
 ++ lblname=name
 ++ '[' -z name ']'
 ++ oc get pods -l name=frontend -n test
 ++ awk -v sel=frontend '$1 ~ sel && $3 == "Running" {print $1}'
-+ fpod=frontend-1-1dbn9
-+ '[' -z frontend-1-1dbn9 ']'
++ fpod=frontend-1-gf3ps
++ '[' -z frontend-1-gf3ps ']'
 ++ uuidgen
-+ logmessage=61f616f7-df99-4e36-8ffd-357eaaf84d54
-+ oc exec -n test frontend-1-1dbn9 -- curl --connect-timeout 1 -s http://172.30.201.213:5432/61f616f7-df99-4e36-8ffd-357eaaf84d54
++ logmessage=62f73a4e-ac67-4c02-8a49-b2fed2fd5187
++ oc exec -n test frontend-1-gf3ps -- curl --connect-timeout 1 -s http://172.31.22.26:5432/62f73a4e-ac67-4c02-8a49-b2fed2fd5187
 ++ uuidgen
-+ logmessage2=ce60e9a2-b0dd-4a1d-b615-e5cf07189ef9
-++ oc get node -l registry=enabled --no-headers
-++ awk '{print $1}'
-+ schedulablenode=host-8-172-111.host.centralci.eng.rdu2.redhat.com
-+ for node in '$schedulablenode'
-+ ssh -i /home/chunchen/cfile/libra-new.pem -o identitiesonly=yes root@host-8-172-111.host.centralci.eng.rdu2.redhat.com 'logger -i -p local6.info -t ce60e9a2-b0dd-4a1d-b615-e5cf07189ef9 ce60e9a2-b0dd-4a1d-b615-e5cf07189ef9'
++ logmessage2=fb84b0a5-8d5f-45f9-be35-c9033a826891
++ chedulablenode=ec2-54-159-243-102.compute-1.amazonaws.com
++ ssh -i /home/chunchen/cfile/libra-new.pem -o identitiesonly=yes root@ec2-54-159-243-102.compute-1.amazonaws.com 'logger -i -p local6.info -t fb84b0a5-8d5f-45f9-be35-c9033a826891 fb84b0a5-8d5f-45f9-be35-c9033a826891'
 ++ get_running_pod kibana
 ++ lblname=
 ++ '[' -z '' ']'
 ++ lblname=component
 ++ oc get pods -l component=kibana
 ++ awk -v sel=kibana '$1 ~ sel && $3 == "Running" {print $1}'
-+ kpod=logging-kibana-1-23zcb
-+ '[' -z logging-kibana-1-23zcb ']'
++ kpod=logging-kibana-1-i9rct
++ '[' -z logging-kibana-1-i9rct ']'
 + rc=0
 + myhost=logging-es
 + myproject=test
-+ mymessage=61f616f7-df99-4e36-8ffd-357eaaf84d54
++ mymessage=62f73a4e-ac67-4c02-8a49-b2fed2fd5187
 + expected=2
 + wait_until_cmd_or_err test_count_expected test_count_err 20
 + let ii=20
@@ -261,21 +242,299 @@ pod for component=fluentd not running yet
 + '[' 20 -gt 0 ']'
 + test_count_expected
 + myfield=message
-++ curl_es_from_kibana logging-kibana-1-23zcb logging-es test _count message 61f616f7-df99-4e36-8ffd-357eaaf84d54
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
 ++ get_count_from_json
 ++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
-++ oc exec logging-kibana-1-23zcb -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:61f616f7-df99-4e36-8ffd-357eaaf84d54'
-defaulting container name to kibana, use 'oc describe po/logging-kibana-1-23zcb' cmd to see all containers in this pod+ nrecs=2
-+ test 2 = 2
-+ break
-+ '[' 20 -le 0 ']'
-+ return 0
-+ '[' -n 1 ']'
-+ echo good - found 2 records project test for 61f616f7-df99-4e36-8ffd-357eaaf84d54
-good - found 2 records project test for 61f616f7-df99-4e36-8ffd-357eaaf84d54
-+ myhost=logging-es
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 19 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 18 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 17 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 16 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ get_count_from_json
+logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 15 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 14 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 13 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 12 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 11 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 10 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 9 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 8 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 7 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 6 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 5 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 4 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this poderror: error executing remote command: error executing command in container: Error executing in Docker Container: 28
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/usr/lib64/python2.7/json/__init__.py", line 326, in loads
+    return _default_decoder.decode(s)
+  File "/usr/lib64/python2.7/json/decoder.py", line 366, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+  File "/usr/lib64/python2.7/json/decoder.py", line 384, in raw_decode
+    raise ValueError("No JSON object could be decoded")
+ValueError: No JSON object could be decoded
++ nrecs=
++ test '' = 2
++ sleep 1
++ let ii=ii-1
++ '[' 3 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 2 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 1 -gt 0 ']'
++ test_count_expected
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 0 -gt 0 ']'
++ '[' 0 -le 0 ']'
++ test_count_err
++ myfield=message
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ echo Error: found 1 for project test message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187 - expected 2
+Error: found 1 for project test message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187 - expected 2
++ for thetype in _count _search
++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _count message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
++ python -mjson.tool
++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod{
+    "_shards": {
+        "failed": 0, 
+        "successful": 5, 
+        "total": 5
+    }, 
+    "count": 1
+}
++ for thetype in _count _search
++ curl_es_from_kibana logging-kibana-1-i9rct logging-es test _search message 62f73a4e-ac67-4c02-8a49-b2fed2fd5187
++ python -mjson.tool
++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_search?q=message:62f73a4e-ac67-4c02-8a49-b2fed2fd5187'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod{
+    "_shards": {
+        "failed": 0, 
+        "successful": 5, 
+        "total": 5
+    }, 
+    "hits": {
+        "hits": [
+            {
+                "_id": "AVcI_GiH1Ccr5DwbaOhd", 
+                "_index": "test.3d843a05-7567-11e6-a9e1-0e584072d231.2016.09.08", 
+                "_score": 1.7622192, 
+                "_source": {
+                    "docker_container_id": "db87904fc20a382382a6529cbce2d12970e7caaf0517b71b3654f3226bc80476", 
+                    "hostname": "ip-172-18-14-36.ec2.internal", 
+                    "kubernetes_container_name": "ruby-helloworld", 
+                    "kubernetes_host": "ip-172-18-14-36.ec2.internal", 
+                    "kubernetes_labels_app": "ruby-helloworld-sample", 
+                    "kubernetes_labels_deployment": "frontend-1", 
+                    "kubernetes_labels_deploymentconfig": "frontend", 
+                    "kubernetes_labels_name": "frontend", 
+                    "kubernetes_namespace_id": "3d843a05-7567-11e6-a9e1-0e584072d231", 
+                    "kubernetes_namespace_name": "test", 
+                    "kubernetes_pod_id": "44ee3151-7590-11e6-a9e1-0e584072d231", 
+                    "kubernetes_pod_name": "frontend-1-gf3ps", 
+                    "message": "10.2.1.1 - - [08/Sep/2016 08:48:51] \"GET /62f73a4e-ac67-4c02-8a49-b2fed2fd5187 HTTP/1.1\" 404 18 0.0004\n", 
+                    "time": "2016-09-08T08:48:51.675137908Z", 
+                    "version": "1.3.0"
+                }, 
+                "_type": "fluentd"
+            }
+        ], 
+        "max_score": 1.7622192, 
+        "total": 1
+    }, 
+    "timed_out": false, 
+    "took": 91
+}
++ return 1
++ rc=1
++ myhost=logging-es-ops
 + myproject=.operations
-+ mymessage=ce60e9a2-b0dd-4a1d-b615-e5cf07189ef9
++ mymessage=fb84b0a5-8d5f-45f9-be35-c9033a826891
 + expected=2
 + myfield=ident
 + wait_until_cmd_or_err test_count_expected test_count_err 20
@@ -284,159 +543,203 @@ good - found 2 records project test for 61f616f7-df99-4e36-8ffd-357eaaf84d54
 + '[' 20 -gt 0 ']'
 + test_count_expected
 + myfield=ident
-++ curl_es_from_kibana logging-kibana-1-23zcb logging-es .operations _count ident ce60e9a2-b0dd-4a1d-b615-e5cf07189ef9
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
 ++ get_count_from_json
 ++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
-++ oc exec logging-kibana-1-23zcb -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/.operations*/_count?q=ident:ce60e9a2-b0dd-4a1d-b615-e5cf07189ef9'
-defaulting container name to kibana, use 'oc describe po/logging-kibana-1-23zcb' cmd to see all containers in this pod+ nrecs=2
-+ test 2 = 2
-+ break
-+ '[' 20 -le 0 ']'
-+ return 0
-+ '[' -n 1 ']'
-+ echo good - found 2 records project .operations for ce60e9a2-b0dd-4a1d-b615-e5cf07189ef9
-good - found 2 records project .operations for ce60e9a2-b0dd-4a1d-b615-e5cf07189ef9
-+ return 0
-+ oc replace --force -f /tmp/tmp.GKUKv2wvNu
-template "logging-fluentd-template" deleted
-template "logging-fluentd-template" replaced
-+ rm -f /tmp/tmp.GKUKv2wvNu
-+ restart_fluentd
-+ oc delete daemonset logging-fluentd
-daemonset "logging-fluentd" deleted
-+ wait_for_pod_ACTION stop frontend-1-1dbn9
-+ ii=120
-+ incr=10
-+ '[' stop = start ']'
-+ curpod=frontend-1-1dbn9
-+ '[' 120 -gt 0 ']'
-+ '[' stop = stop ']'
-+ oc describe pod/frontend-1-1dbn9
-+ '[' stop = start ']'
-+ break
-+ '[' 120 -le 0 ']'
-+ return 0
-+ oc process logging-fluentd-template
-+ oc create -f -
-daemonset "logging-fluentd" created
-+ wait_for_pod_ACTION start fluentd
-+ ii=120
-+ incr=10
-+ '[' start = start ']'
-++ get_running_pod fluentd
-++ lblname=
-++ '[' -z '' ']'
-++ lblname=component
-++ oc get pods -l component=fluentd
-++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
-+ curpod=
-+ '[' 120 -gt 0 ']'
-+ '[' start = stop ']'
-+ '[' start = start ']'
-+ '[' -z '' ']'
-+ '[' -n 1 ']'
-+ echo pod for component=fluentd not running yet
-pod for component=fluentd not running yet
-+ sleep 10
-++ expr 120 - 10
-+ ii=110
-+ '[' start = start ']'
-++ get_running_pod fluentd
-++ lblname=
-++ '[' -z '' ']'
-++ lblname=component
-++ oc get pods -l component=fluentd
-++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
-+ curpod=logging-fluentd-4emcz
-+ '[' 110 -gt 0 ']'
-+ '[' start = stop ']'
-+ '[' start = start ']'
-+ '[' -z logging-fluentd-4emcz ']'
-+ break
-+ '[' 110 -le 0 ']'
-+ return 0
-++ get_running_pod fluentd
-++ lblname=
-++ '[' -z '' ']'
-++ lblname=component
-++ oc get pods -l component=fluentd
-++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
-+ fpod=logging-fluentd-4emcz
-+ write_and_verify_logs 1
-+ expected=1
-++ get_running_pod frontend name '-n test'
-++ head -1
-++ lblname=name
-++ '[' -z name ']'
-++ oc get pods -l name=frontend -n test
-++ awk -v sel=frontend '$1 ~ sel && $3 == "Running" {print $1}'
-+ fpod=frontend-1-1dbn9
-+ '[' -z frontend-1-1dbn9 ']'
-++ uuidgen
-+ logmessage=7150b7ab-66ae-44df-81ae-1fa6e1809183
-+ oc exec -n test frontend-1-1dbn9 -- curl --connect-timeout 1 -s http://172.30.201.213:5432/7150b7ab-66ae-44df-81ae-1fa6e1809183
-++ uuidgen
-+ logmessage2=7b1c9762-d8ef-406a-a0d2-604bec02a437
-++ oc get node -l registry=enabled --no-headers
-++ awk '{print $1}'
-+ schedulablenode=host-8-172-111.host.centralci.eng.rdu2.redhat.com
-+ for node in '$schedulablenode'
-+ ssh -i /home/chunchen/cfile/libra-new.pem -o identitiesonly=yes root@host-8-172-111.host.centralci.eng.rdu2.redhat.com 'logger -i -p local6.info -t 7b1c9762-d8ef-406a-a0d2-604bec02a437 7b1c9762-d8ef-406a-a0d2-604bec02a437'
-++ get_running_pod kibana
-++ lblname=
-++ '[' -z '' ']'
-++ lblname=component
-++ oc get pods -l component=kibana
-++ awk -v sel=kibana '$1 ~ sel && $3 == "Running" {print $1}'
-+ kpod=logging-kibana-1-23zcb
-+ '[' -z logging-kibana-1-23zcb ']'
-+ rc=0
-+ myhost=logging-es
-+ myproject=test
-+ mymessage=7150b7ab-66ae-44df-81ae-1fa6e1809183
-+ expected=1
-+ wait_until_cmd_or_err test_count_expected test_count_err 20
-+ let ii=20
-+ interval=1
-+ '[' 20 -gt 0 ']'
-+ test_count_expected
-+ myfield=message
-++ curl_es_from_kibana logging-kibana-1-23zcb logging-es test _count message 7150b7ab-66ae-44df-81ae-1fa6e1809183
-++ get_count_from_json
-++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
-++ oc exec logging-kibana-1-23zcb -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/test*/_count?q=message:7150b7ab-66ae-44df-81ae-1fa6e1809183'
-defaulting container name to kibana, use 'oc describe po/logging-kibana-1-23zcb' cmd to see all containers in this pod+ nrecs=1
-+ test 1 = 1
-+ break
-+ '[' 20 -le 0 ']'
-+ return 0
-+ '[' -n 1 ']'
-+ echo good - found 1 records project test for 7150b7ab-66ae-44df-81ae-1fa6e1809183
-good - found 1 records project test for 7150b7ab-66ae-44df-81ae-1fa6e1809183
-+ myhost=logging-es
-+ myproject=.operations
-+ mymessage=7b1c9762-d8ef-406a-a0d2-604bec02a437
-+ expected=1
-+ myfield=ident
-+ wait_until_cmd_or_err test_count_expected test_count_err 20
-+ let ii=20
-+ interval=1
-+ '[' 20 -gt 0 ']'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 19 -gt 0 ']'
 + test_count_expected
 + myfield=ident
-++ curl_es_from_kibana logging-kibana-1-23zcb logging-es .operations _count ident 7b1c9762-d8ef-406a-a0d2-604bec02a437
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
 ++ get_count_from_json
 ++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
-++ oc exec logging-kibana-1-23zcb -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es:9200/.operations*/_count?q=ident:7b1c9762-d8ef-406a-a0d2-604bec02a437'
-defaulting container name to kibana, use 'oc describe po/logging-kibana-1-23zcb' cmd to see all containers in this pod+ nrecs=1
-+ test 1 = 1
-+ break
-+ '[' 20 -le 0 ']'
-+ return 0
-+ '[' -n 1 ']'
-+ echo good - found 1 records project .operations for 7b1c9762-d8ef-406a-a0d2-604bec02a437
-good - found 1 records project .operations for 7b1c9762-d8ef-406a-a0d2-604bec02a437
-+ return 0
-+ cleanup
-+ '[' '!' -f /tmp/tmp.GKUKv2wvNu ']'
-+ return 0
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 18 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 17 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 16 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 15 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 14 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 13 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 12 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 11 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 10 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 9 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 8 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 7 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 6 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 5 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 4 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 3 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 2 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
