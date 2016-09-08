@@ -743,3 +743,120 @@ defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct'
 defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
 + test 1 = 2
 + sleep 1
++ let ii=ii-1
++ '[' 1 -gt 0 ']'
++ test_count_expected
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ test 1 = 2
++ sleep 1
++ let ii=ii-1
++ '[' 0 -gt 0 ']'
++ '[' 0 -le 0 ']'
++ test_count_err
++ myfield=ident
+++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
+++ get_count_from_json
+++ python -c 'import json, sys; print json.loads(sys.stdin.read())["count"]'
+++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod+ nrecs=1
++ echo Error: found 1 for project .operations message fb84b0a5-8d5f-45f9-be35-c9033a826891 - expected 2
+Error: found 1 for project .operations message fb84b0a5-8d5f-45f9-be35-c9033a826891 - expected 2
++ for thetype in _count _search
++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _count ident fb84b0a5-8d5f-45f9-be35-c9033a826891
++ python -mjson.tool
++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_count?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod{
+    "_shards": {
+        "failed": 0, 
+        "successful": 5, 
+        "total": 5
+    }, 
+    "count": 1
+}
++ for thetype in _count _search
++ curl_es_from_kibana logging-kibana-1-i9rct logging-es-ops .operations _search ident fb84b0a5-8d5f-45f9-be35-c9033a826891
++ python -mjson.tool
++ oc exec logging-kibana-1-i9rct -- curl --connect-timeout 1 -s -k --cert /etc/kibana/keys/cert --key /etc/kibana/keys/key 'https://logging-es-ops:9200/.operations*/_search?q=ident:fb84b0a5-8d5f-45f9-be35-c9033a826891'
+defaulting container name to kibana, use 'oc describe po/logging-kibana-1-i9rct' cmd to see all containers in this pod{
+    "_shards": {
+        "failed": 0, 
+        "successful": 5, 
+        "total": 5
+    }, 
+    "hits": {
+        "hits": [
+            {
+                "_id": "AVcI_GjviMYCqtu50qAz", 
+                "_index": ".operations.2016.09.08", 
+                "_score": 11.557408, 
+                "_source": {
+                    "hostname": "ip-172-18-14-36", 
+                    "ident": "fb84b0a5-8d5f-45f9-be35-c9033a826891", 
+                    "message": "fb84b0a5-8d5f-45f9-be35-c9033a826891", 
+                    "pid": "23707", 
+                    "time": "2016-09-08T04:48:55-04:00", 
+                    "version": "1.3.0"
+                }, 
+                "_type": "fluentd"
+            }
+        ], 
+        "max_score": 11.557408, 
+        "total": 1
+    }, 
+    "timed_out": false, 
+    "took": 19
+}
++ return 1
++ rc=1
++ return 1
++ oc get events -o yaml
++ exit 1
++ cleanup
++ '[' '!' -f /tmp/tmp.Zh6WICmTiJ ']'
++ oc replace --force -f /tmp/tmp.Zh6WICmTiJ
+template "logging-fluentd-template" deleted
+template "logging-fluentd-template" replaced
++ rm -f /tmp/tmp.Zh6WICmTiJ
++ restart_fluentd
++ oc delete daemonset logging-fluentd
+daemonset "logging-fluentd" deleted
++ wait_for_pod_ACTION stop frontend-1-gf3ps
++ ii=120
++ incr=10
++ '[' stop = start ']'
++ curpod=frontend-1-gf3ps
++ '[' 120 -gt 0 ']'
++ '[' stop = stop ']'
++ oc describe pod/frontend-1-gf3ps
++ '[' stop = start ']'
++ break
++ '[' 120 -le 0 ']'
++ return 0
++ oc process logging-fluentd-template
++ oc create -f -
+daemonset "logging-fluentd" created
++ wait_for_pod_ACTION start fluentd
++ ii=120
++ incr=10
++ '[' start = start ']'
+++ get_running_pod fluentd
+++ lblname=
+++ '[' -z '' ']'
+++ lblname=component
+++ oc get pods -l component=fluentd
+++ awk -v sel=fluentd '$1 ~ sel && $3 == "Running" {print $1}'
++ curpod='logging-fluentd-m8s5w
+logging-fluentd-vn1he'
++ '[' 120 -gt 0 ']'
++ '[' start = stop ']'
++ '[' start = start ']'
++ '[' -z 'logging-fluentd-m8s5w
+logging-fluentd-vn1he' ']'
++ break
++ '[' 120 -le 0 ']'
++ return 0
